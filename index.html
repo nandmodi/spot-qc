@@ -343,6 +343,767 @@ tr:hover td{background:var(--bg2)}
 .av-4{background:#F0F9FF;color:#0369A1}
 .av-5{background:#FDF2F8;color:#9D174D}
 .av-6{background:#FFFBEB;color:#92400E}
+
+/* Base layout for the Video QA scoping container */
+/* z-index 40 sits ABOVE Spyne's topbar (z:30) so descendant overlays
+   (settings panel, reappend modal, toast) render above the topbar.
+   The topbar mode pills stay clickable because .vqa-root only covers
+   the area below the topbar (top:52px), so the two never overlap. */
+.vqa-root{position:fixed;top:52px;bottom:30px;left:0;right:0;z-index:40;background:var(--bg);/* Round-6 #1+#4: set color and font-family on .vqa-root itself so
+   all descendants inherit from our scoped vars rather than from
+   Spyne's outer body (which is Inter + dark navy). */color:var(--text);font-family:var(--font-body);}
+.vqa-root.hidden{display:none!important;}
+/* Round-6 #1: also force inheritance on headings & form controls so
+   browser UA defaults can't override. */
+.vqa-root h1,.vqa-root h2,.vqa-root h3,.vqa-root h4,.vqa-root h5,.vqa-root h6{color:inherit!important;font-family:inherit!important;}
+.vqa-root button,.vqa-root input,.vqa-root select,.vqa-root textarea{font-family:inherit;}
+/* Round-6 #6: dark mode = warm dark grey, NOT dark navy. Override
+   the original :root vars (which got transformed to .vqa-root in
+   dark mode). User-requested base color #1f1f1e. */
+.vqa-root:not(.light){--bg:#1f1f1e;--surface:#2a2a29;--surface2:#33332f;--surface3:#3d3d39;--surface4:#494945;--border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.14);--text:#f1f5f9;--text2:#cbd5e1;--text3:#94a3b8;--bg1:#252523;--bg0:#1a1a19;--line:rgba(255,255,255,0.08);--line2:rgba(255,255,255,0.14);}
+/* ── ARCHITECTURE NOTE: sidebar in flex flow inside .shell ── */
+.vqa-root .shell{height:100%!important;padding-bottom:26px!important;box-sizing:border-box;}
+/* Sidebar must outrank entScreen (z:200). */
+.vqa-root .left-sidebar{z-index:250!important;}
+/* Round-6 #3: GLASS EFFECT on the sidebar. Translucent surface +
+   backdrop-filter blur. Falls back gracefully on browsers without
+   backdrop-filter — they get a plain semi-transparent surface. */
+.vqa-root .left-sidebar{background:rgba(42,42,41,.55)!important;backdrop-filter:blur(14px) saturate(1.4);-webkit-backdrop-filter:blur(14px) saturate(1.4);border-right:1px solid rgba(255,255,255,.08)!important;}
+.vqa-root.light .left-sidebar{background:rgba(255,255,255,.55)!important;border-right:1px solid rgba(15,23,42,.08)!important;}
+/* ── ROUND 9: Home + Review buttons visible ONLY during an active
+   review session. The session starts when the user successfully claims
+   videos via Start QA / Load All Pending (claimBatch happy path),
+   and ends when they click Home (showEntScreen). Browsing Summary
+   from the home page WITHOUT starting a session leaves both buttons
+   hidden. The .in-review class on .vqa-root drives this. */
+.vqa-root:not(.in-review) #snav-home,
+.vqa-root:not(.in-review) #snav-review,
+/* legacy: also catch the old onclick-targeted Home button if any */
+.vqa-root:not(.in-review) button.snav-item[onclick*="showEntScreen"]{display:none!important;}
+/* ── ROUND 8 #2: entScreen layout = vertical flex column.
+   - app-logo (header) sits at top, fixed height
+   - ent-card flexes to fill remaining space, height bounded by parent
+   - inside ent-card, only .ent-list scrolls (everything else fixed)
+   - ribbon stays at bottom of .vqa-root (its own absolute layer)
+   IMPORTANT: no overflow on .screen itself — without that, the card
+   takes 100% of available vertical space and only its inner list
+   scrolls when the enterprise count exceeds what fits. ── */
+/* Issue #7+#15 (legacy): scrollable .screen, offset for sidebar */
+.vqa-root .screen{position:absolute!important;display:flex!important;flex-direction:column!important;align-items:stretch!important;padding:0!important;left:var(--sidebar-w)!important;right:0!important;top:0!important;bottom:26px!important;}
+/* Round 8 #2: NOT sticky any more — header is in normal flex flow at top */
+.vqa-root #entScreen .app-logo{position:static!important;width:100%;text-align:center;padding:18px 0 14px;flex-shrink:0;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;margin:0;}
+/* Card takes the middle space; only its inner list scrolls */
+.vqa-root .ent-card{max-height:none!important;flex:1 1 auto!important;display:flex!important;flex-direction:column!important;min-height:0!important;margin:0 auto 14px!important;width:min(720px,calc(100% - 48px));}
+.vqa-root .ent-card .ent-list{flex:1 1 auto!important;overflow-y:auto!important;min-height:120px;}
+/* Header / search / filters / total / footer are flex-shrink:0 so they
+   never get squeezed by the scrolling list. */
+.vqa-root .ent-card > :not(.ent-list){flex-shrink:0;}
+/* Round-6 #3: GLASS EFFECT on settings panel. */
+.vqa-root .settings-panel{background:rgba(42,42,41,.7)!important;backdrop-filter:blur(20px) saturate(1.5);-webkit-backdrop-filter:blur(20px) saturate(1.5);border-left:1px solid rgba(255,255,255,.1)!important;}
+.vqa-root.light .settings-panel{background:rgba(255,255,255,.7)!important;border-left:1px solid rgba(15,23,42,.08)!important;}
+.vqa-root .settings-overlay{background:rgba(0,0,0,.35)!important;}
+/* Topbar buttons that should hide while on Video QA mode */
+body.vqa-mode .btn-qc-status,
+body.vqa-mode .topbar > a.btn-top-link,
+body.vqa-mode .topbar > .btn-sm:last-of-type,
+body.vqa-mode #doneCounter,
+body.vqa-mode .bottom-ribbon{display:none!important;}
+body.vqa-mode .vqa-root{bottom:0;}
+/* Toast animation override */
+.vqa-root .toast{animation:none!important;}
+@keyframes spin{to{transform:rotate(360deg);}}
+/* Sidebar hover-open */
+.vqa-root .left-sidebar:hover{width:var(--sidebar-open-w);}
+.vqa-root .left-sidebar:hover .sidebar-logo,
+.vqa-root .left-sidebar:hover .snav-label,
+.vqa-root .left-sidebar:hover .rev-name{opacity:1;}
+/* Re-QA button styling */
+.vqa-root .btn-reqa{background:#7e22ce;color:#fff;border:none;padding:8px 14px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--sans);display:none;align-items:center;gap:5px;transition:background .15s;}
+.vqa-root .btn-reqa.visible{display:inline-flex;}
+.vqa-root .btn-reqa:hover{background:#9333ea;}
+/* Hide Approve/Reject when reviewing QA'd video */
+.vqa-root .action-row.qad-mode .btn-approve,
+.vqa-root .action-row.qad-mode .btn-reject,
+.vqa-root .action-row.qad-mode .btn-clear-sel,
+.vqa-root .action-row.qad-mode .btn-submit{display:none!important;}
+/* Hide pendency sidebar when jumped from Summary */
+.vqa-root.qad-jump .filter-sidebar{display:none!important;}
+/* Auto-sync indicator pulse */
+.vqa-root .sync-indicator{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-family:var(--mono);color:var(--text3);margin-left:8px;}
+.vqa-root .sync-indicator .dot{width:6px;height:6px;border-radius:50%;background:var(--green);transition:background .3s;}
+.vqa-root .sync-indicator.syncing .dot{background:var(--accent2);animation:vqa-pulse 1s ease-in-out infinite;}
+@keyframes vqa-pulse{0%,100%{opacity:.4;}50%{opacity:1;}}
+/* QA decision boxes in meta panel */
+.vqa-root .qa-rejection-box{margin-top:8px;padding:9px 11px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);border-radius:7px;font-size:11.5px;color:var(--red);line-height:1.4;}
+.vqa-root .qa-rejection-box .qa-lbl{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--red);opacity:.8;margin-bottom:3px;}
+.vqa-root .qa-approval-box{margin-top:8px;padding:9px 11px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);border-radius:7px;font-size:11.5px;color:var(--green);line-height:1.4;}
+.vqa-root .qa-approval-box .qa-lbl{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--green);opacity:.8;margin-bottom:3px;}
+/* QC rejection box */
+.vqa-root .qc-rejection-box{margin-top:8px;padding:9px 11px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:7px;font-size:11.5px;color:var(--yellow);line-height:1.4;}
+.vqa-root .qc-rejection-box .qa-lbl{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--yellow);opacity:.85;margin-bottom:3px;}
+/* Scrollable summary detail cell */
+.vqa-root .sum-detail{max-width:280px;max-height:80px;overflow-y:auto;white-space:normal;font-size:11px;line-height:1.45;padding:4px 0;}
+.vqa-root .sum-detail .qc-line{color:var(--yellow);margin-bottom:4px;}
+.vqa-root .sum-detail .qa-line{color:var(--text);}
+.vqa-root .sum-detail .lbl{display:inline-block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;opacity:.7;margin-right:4px;}
+/* Made-with-love ribbon */
+.vqa-root .vqa-ribbon{position:absolute;bottom:0;left:0;right:0;height:26px;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:500;color:var(--text2);background:var(--bg1);border-top:1px solid var(--border2);z-index:260;pointer-events:none;letter-spacing:.02em;}
+.vqa-root.light .vqa-ribbon{color:#475569;background:#e2e8f0;border-top-color:#cbd5e1;}
+.vqa-root .screen{padding-bottom:26px;}
+
+/* ── GRAY + BLUE THEME ── */
+.vqa-root {
+  --bg:       #1a1d21;
+  --surface:  #22262c;
+  --surface2: #2a2f37;
+  --surface3: #333b46;
+  --surface4: #3c4552;
+  --border:   rgba(255,255,255,0.07);
+  --border2:  rgba(255,255,255,0.12);
+  --accent:   #3b82f6;
+  --accent2:  #60a5fa;
+  --text:     #e8ecf0;
+  --text2:    #94a3b8;
+  --text3:    #5a6578;
+  --green:    #22c55e;
+  --red:      #ef4444;
+  --yellow:   #f59e0b;
+  --purple:   #a855f7;
+  --blue:     #3b82f6;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Geist', sans-serif;
+  --font-body: var(--sans);
+  --sidebar-w: 56px;
+  --sidebar-open-w: 220px;
+}
+.vqa-root.light {
+  --bg:      #f0f4f8;
+  --surface: #ffffff;
+  --surface2:#edf2f7;
+  --surface3:#e2e8f0;
+  --surface4:#d8e2ed;
+  --border:  rgba(0,0,0,0.07);
+  --border2: rgba(0,0,0,0.12);
+  --text:    #111827;
+  --text2:   #4b5563;
+  --text3:   #9ca3af;
+}
+.vqa-root__noop_universal_drop{margin:0;padding:0;box-sizing:border-box;}
+.vqa-root__noop_body_drop{
+  font-family:var(--font-body);
+  background:var(--bg);
+  color:var(--text);
+  height:100vh;
+  overflow:hidden;
+  transition:background .25s,color .25s;
+}
+
+/* ══════════ SCREENS ══════════ */
+.vqa-root .screen{
+  position:fixed;inset:0;z-index:200;
+  background:var(--bg);
+  display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:12px;
+}
+.vqa-root .screen.hidden{display:none!important;}
+
+/* ── LOGIN ── */
+.vqa-root .login-card{
+  background:var(--surface);
+  border:1px solid var(--border2);
+  border-radius:16px;
+  padding:40px 44px;
+  width:360px;
+  box-shadow:0 24px 60px rgba(0,0,0,.5);
+}
+.vqa-root .login-card h2{font-size:20px;font-weight:600;margin-bottom:4px;}
+.vqa-root .login-card p{color:var(--text2);font-size:13px;margin-bottom:24px;}
+.vqa-root .login-card input{
+  width:100%;padding:11px 14px;border-radius:9px;
+  border:1px solid var(--border2);background:var(--surface2);
+  color:var(--text);font-size:13px;font-family:var(--font-body);
+  margin-bottom:10px;outline:none;transition:border .15s;
+}
+.vqa-root .login-card input:focus{border-color:var(--accent);}
+.vqa-root .btn-primary{
+  width:100%;padding:12px;background:var(--accent);color:#fff;
+  border:none;border-radius:9px;font-size:14px;font-weight:600;
+  cursor:pointer;transition:opacity .15s;font-family:var(--font-body);
+}
+.vqa-root .btn-primary:hover{opacity:.88;}
+.vqa-root .name-hint{font-size:11px;color:var(--accent2);margin-top:-6px;margin-bottom:10px;cursor:pointer;display:none;}
+.vqa-root .name-hint:hover{text-decoration:underline;}
+.vqa-root .app-logo{font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:3px;text-transform:uppercase;margin-bottom:24px;}
+
+/* ── ENTERPRISE PICKER ── */
+.vqa-root .ent-card{
+  background:var(--surface);border:1px solid var(--border2);
+  border-radius:18px;padding:24px 28px;width:640px;max-width:95vw;
+  box-shadow:0 24px 60px rgba(0,0,0,.5);
+  display:flex;flex-direction:column;gap:13px;
+  max-height:90vh;
+}
+.vqa-root .ent-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+.vqa-root .ent-head h2{font-size:18px;font-weight:600;}
+.vqa-root .ent-head .sub{font-size:12px;color:var(--text2);margin-top:2px;}
+.vqa-root .ent-head-actions{display:flex;gap:6px;flex-shrink:0;}
+.vqa-root .ent-head-btn{
+  padding:7px 12px;border-radius:8px;border:1px solid var(--border2);
+  background:var(--surface2);color:var(--text2);font-size:12px;cursor:pointer;
+  display:flex;align-items:center;gap:5px;transition:all .15s;
+  font-family:var(--font-body);
+}
+.vqa-root .ent-head-btn:hover{border-color:var(--accent);color:var(--accent);}
+.vqa-root .ent-head-btn.danger:hover{border-color:var(--red);color:var(--red);}
+.vqa-root .ent-head-btn.spinning .ico{animation:spin .8s linear infinite;display:inline-block;}
+.vqa-root .ent-search-row{display:flex;gap:8px;align-items:center;flex-shrink:0;}
+.vqa-root .ent-search{
+  flex:1;padding:9px 13px;border-radius:9px;
+  border:1px solid var(--border2);background:var(--surface2);
+  color:var(--text);font-size:13px;font-family:var(--font-body);
+  outline:none;transition:border .15s;
+}
+.vqa-root .ent-search:focus{border-color:var(--accent);}
+.vqa-root .ent-total{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:11px 16px;background:rgba(59,130,246,.08);
+  border:1px solid rgba(59,130,246,.18);border-radius:10px;
+  flex-shrink:0;
+}
+.vqa-root .ent-total .lbl{font-size:12px;color:var(--text2);}
+.vqa-root .ent-total .num{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--accent2);}
+.vqa-root .ent-list{
+  display:flex;flex-direction:column;gap:7px;
+  overflow-y:auto;flex:1;padding-right:4px;
+  min-height:200px;
+}
+.vqa-root .ent-list::-webkit-scrollbar{width:3px;}
+.vqa-root .ent-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+.vqa-root .ent-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:13px 16px;border-radius:10px;border:1px solid var(--border);
+  background:var(--surface2);cursor:pointer;transition:all .15s;gap:12px;
+  flex-shrink:0;
+}
+.vqa-root .ent-row:hover{border-color:var(--accent);background:var(--surface3);}
+.vqa-root .ent-row .name{font-size:13px;font-weight:500;}
+.vqa-root .ent-row .hint{font-size:11px;color:var(--text3);margin-top:2px;}
+.vqa-root .ent-row-right{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.vqa-root .pill{font-family:var(--mono);font-size:11px;padding:3px 10px;border-radius:14px;font-weight:600;white-space:nowrap;}
+.vqa-root .pill-pending{background:rgba(59,130,246,.1);color:var(--accent2);}
+.vqa-root .pill-done   {background:rgba(34,197,94,.1); color:var(--green);}
+.vqa-root .pill-locked {background:rgba(245,158,11,.1);color:var(--yellow);}
+.vqa-root .claim-btn{
+  padding:6px 14px;background:var(--accent);color:#fff;
+  border:none;border-radius:7px;font-size:12px;font-weight:600;
+  cursor:pointer;transition:opacity .15s;white-space:nowrap;
+}
+.vqa-root .claim-btn:hover{opacity:.85;}
+.vqa-root .claim-btn:disabled{opacity:.4;cursor:not-allowed;}
+.vqa-root .spinner-inline{
+  display:inline-block;width:11px;height:11px;
+  border:2px solid rgba(255,255,255,.3);border-top-color:#fff;
+  border-radius:50%;animation:spin .7s linear infinite;
+  vertical-align:-2px;margin-right:5px;
+}
+.vqa-root .ent-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;flex-shrink:0;}
+.vqa-root .link-btn{font-size:12px;color:var(--accent2);cursor:pointer;background:none;border:none;font-family:var(--font-body);}
+.vqa-root .link-btn:hover{text-decoration:underline;}
+.vqa-root .btn-outline{
+  padding:9px 20px;background:var(--accent);color:#fff;
+  border:none;border-radius:9px;font-size:13px;font-weight:600;
+  cursor:pointer;transition:opacity .15s;font-family:var(--font-body);
+}
+.vqa-root .btn-outline:hover{opacity:.88;}
+
+/* ══════════ OUTER SHELL ══════════ */
+.vqa-root .shell{display:flex;height:100vh;overflow:hidden;}
+
+/* ══════════ COLLAPSIBLE LEFT SIDEBAR ══════════ */
+.vqa-root .left-sidebar{
+  width:var(--sidebar-w);
+  flex-shrink:0;
+  background:var(--surface);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  align-items:center;
+  padding:0 0 12px 0;
+  transition:width .22s cubic-bezier(.4,0,.2,1);
+  overflow:hidden;
+  position:relative;z-index:50;
+}
+.vqa-root .left-sidebar.open{width:var(--sidebar-open-w);}
+.vqa-root .sidebar-top{
+  display:flex;align-items:center;justify-content:center;
+  height:52px;width:100%;flex-shrink:0;
+  border-bottom:1px solid var(--border);
+  padding:0 12px;
+  cursor:pointer;gap:10px;
+  transition:background .15s;
+}
+.vqa-root .sidebar-top:hover{background:var(--surface2);}
+.vqa-root .hamburger{display:flex;flex-direction:column;gap:4px;flex-shrink:0;}
+.vqa-root .hamburger span{width:16px;height:1.5px;background:var(--text2);border-radius:2px;transition:all .2s;}
+.vqa-root .sidebar-logo{font-family:var(--mono);font-size:11px;color:var(--accent2);letter-spacing:1.5px;white-space:nowrap;overflow:hidden;opacity:0;transition:opacity .18s .04s;pointer-events:none;}
+.vqa-root .left-sidebar.open .sidebar-logo{opacity:1;}
+
+.vqa-root .sidebar-nav{flex:1;display:flex;flex-direction:column;gap:2px;padding:10px 8px;width:100%;}
+.vqa-root .snav-item{
+  display:flex;align-items:center;gap:12px;
+  padding:8px 10px;border-radius:8px;cursor:pointer;
+  transition:background .15s;white-space:nowrap;
+  border:none;background:none;color:var(--text2);font-family:var(--font-body);
+  font-size:13px;width:100%;text-align:left;
+}
+.vqa-root .snav-item:hover{background:var(--surface2);color:var(--text);}
+.vqa-root .snav-item.active{background:rgba(59,130,246,.15);color:var(--accent2);}
+.vqa-root .snav-item svg,.vqa-root .snav-item .sico{flex-shrink:0;width:18px;text-align:center;font-size:15px;}
+.vqa-root .snav-label{opacity:0;transition:opacity .18s .04s;font-size:13px;}
+.vqa-root .left-sidebar.open .snav-label{opacity:1;}
+
+.vqa-root .sidebar-bottom{display:flex;flex-direction:column;gap:2px;padding:0 8px 0;width:100%;}
+.vqa-root .sidebar-divider{height:1px;background:var(--border);margin:8px 0;}
+
+/* ══════════ MAIN AREA ══════════ */
+.vqa-root .main-area{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+
+/* ══════════ HEADER ══════════ */
+.vqa-root .header{
+  height:52px;display:flex;align-items:center;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  flex-shrink:0;position:relative;
+}
+.vqa-root .header-center{
+  position:absolute;left:50%;transform:translateX(-50%);
+  font-size:13px;font-weight:600;color:var(--text2);
+  font-family:var(--mono);letter-spacing:1px;white-space:nowrap;
+}
+.vqa-root .header-right{display:flex;align-items:center;gap:8px;margin-left:auto;padding:0 16px;}
+.vqa-root .batch-pill{
+  font-size:11px;padding:4px 10px;border-radius:14px;
+  background:rgba(59,130,246,.1);color:var(--accent2);
+  border:1px solid rgba(59,130,246,.2);font-family:var(--mono);
+  cursor:pointer;white-space:nowrap;transition:background .15s;
+}
+.vqa-root .batch-pill:hover{background:rgba(59,130,246,.18);}
+.vqa-root .queue-badge{
+  display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:14px;
+  font-size:11px;font-weight:500;font-family:var(--mono);
+  background:rgba(245,158,11,.1);color:var(--yellow);
+  border:1px solid rgba(245,158,11,.18);cursor:pointer;transition:all .15s;white-space:nowrap;
+}
+.vqa-root .queue-badge:hover{background:rgba(245,158,11,.18);}
+.vqa-root .queue-badge.synced{background:rgba(34,197,94,.08);color:var(--green);border-color:rgba(34,197,94,.18);cursor:default;}
+.vqa-root .icon-btn{
+  width:30px;height:30px;border-radius:7px;border:1px solid var(--border);
+  background:var(--surface2);color:var(--text2);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:14px;
+  transition:all .15s;flex-shrink:0;
+}
+.vqa-root .icon-btn:hover{border-color:var(--accent);color:var(--accent);}
+.vqa-root .icon-btn.spinning{animation:spin .8s linear infinite;}
+
+/* ══════════ APP BODY ══════════ */
+.vqa-root .app-body{display:flex;flex:1;overflow:hidden;}
+
+/* ══════════ FILTER SIDEBAR ══════════ */
+.vqa-root .filter-sidebar{
+  width:260px;flex-shrink:0;display:flex;flex-direction:column;
+  border-right:1px solid var(--border);background:var(--surface);overflow:hidden;
+}
+.vqa-root .filter-panel{padding:10px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:7px;flex-shrink:0;}
+.vqa-root .filter-panel input,.vqa-root .filter-panel select{
+  width:100%;padding:7px 11px;border-radius:7px;
+  border:1px solid var(--border);background:var(--surface2);
+  color:var(--text);font-size:12px;font-family:var(--font-body);outline:none;transition:border .15s;
+}
+.vqa-root .filter-panel input:focus,.vqa-root .filter-panel select:focus{border-color:var(--accent);}
+.vqa-root .filter-panel select option{background:var(--surface2);}
+.vqa-root .frow{display:flex;gap:7px;}
+.vqa-root .frow input{flex:1;}
+.vqa-root .btn-apply{
+  flex:1;padding:7px;background:var(--accent);color:#fff;
+  border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;transition:opacity .15s;
+}
+.vqa-root .btn-apply:hover{opacity:.88;}
+.vqa-root .btn-clear{
+  flex:1;padding:7px;background:var(--surface3);color:var(--text2);
+  border:1px solid var(--border);border-radius:7px;font-size:12px;cursor:pointer;
+}
+.vqa-root .date-tabs{display:flex;gap:4px;}
+.vqa-root .date-tab{
+  flex:1;padding:5px 3px;background:var(--surface2);border:1px solid var(--border);
+  border-radius:6px;color:var(--text3);font-size:11px;font-weight:500;
+  cursor:pointer;text-align:center;transition:all .15s;
+}
+.vqa-root .date-tab.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+
+/* show QA'd toggle */
+.vqa-root .toggle-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 10px;border-bottom:1px solid var(--border);background:var(--surface2);
+  flex-shrink:0;
+}
+.vqa-root .toggle-row label{font-size:11px;color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:7px;}
+.vqa-root .tog{position:relative;width:30px;height:17px;flex-shrink:0;}
+.vqa-root .tog input{opacity:0;width:0;height:0;}
+.vqa-root .tog-slider{position:absolute;inset:0;background:var(--surface3);border-radius:17px;cursor:pointer;transition:all .18s;border:1px solid var(--border);}
+.vqa-root .tog-slider:before{content:'';position:absolute;height:11px;width:11px;left:2px;bottom:2px;background:var(--text3);border-radius:50%;transition:.18s;}
+.vqa-root input:checked+.tog-slider{background:var(--accent);border-color:var(--accent);}
+.vqa-root input:checked+.tog-slider:before{transform:translateX(13px);background:#fff;}
+
+/* custom chips */
+.vqa-root .chip-section{padding:7px 10px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.vqa-root .chip{
+  display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:11px;
+  font-size:11px;background:rgba(59,130,246,.1);color:var(--accent2);
+  border:1px solid rgba(59,130,246,.18);margin:2px;cursor:pointer;transition:all .13s;
+}
+.vqa-root .chip:hover{background:rgba(59,130,246,.18);}
+.vqa-root .chip.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+.vqa-root .chip .x{opacity:.55;font-size:10px;}
+
+/* video list */
+.vqa-root .video-list{flex:1;overflow-y:auto;min-height:0;}
+.vqa-root .video-list::-webkit-scrollbar{width:3px;}
+.vqa-root .video-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+.vqa-root .list-empty{padding:36px 16px;text-align:center;color:var(--text3);font-size:12px;line-height:1.6;}
+.vqa-root .vitem{
+  padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;
+  display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center;
+  transition:background .12s;
+}
+.vqa-root .vitem:hover{background:var(--surface2);}
+.vqa-root .vitem.active{background:var(--surface3);border-left:2px solid var(--accent);}
+.vqa-root .vitem-name{font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;grid-column:1;}
+.vqa-root .vitem-id{font-family:var(--mono);font-size:10px;color:var(--text3);grid-column:1;}
+.vqa-root .vitem-date{font-size:10px;color:var(--text3);grid-column:1;}
+.vqa-root .vbadge{
+  font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:9px;font-weight:600;
+  white-space:nowrap;grid-column:2;grid-row:1/4;align-self:center;
+}
+.vqa-root .b-verified{background:rgba(34,197,94,.1); color:var(--green);}
+.vqa-root .b-rejected{background:rgba(239,68,68,.1); color:var(--red);}
+.vqa-root .b-done    {background:rgba(59,130,246,.1);color:var(--accent2);}
+.vqa-root .b-pending {background:rgba(255,255,255,.06);color:var(--text3);}
+.vqa-root .b-qa      {background:rgba(59,130,246,.12);color:var(--accent2);}
+
+/* ══════════ MAIN CONTENT ══════════ */
+.vqa-root .content{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.vqa-root .page{display:none;flex:1;flex-direction:column;overflow:hidden;}
+.vqa-root .page.active{display:flex;}
+
+/* REVIEW PAGE */
+.vqa-root .review-row{flex:1;display:flex;overflow:hidden;}
+.vqa-root .video-pane{
+  flex:1.5;display:flex;flex-direction:column;padding:14px;gap:10px;
+  border-right:1px solid var(--border);overflow:hidden;
+}
+.vqa-root .video-wrap{
+  flex:1;background:#000;border-radius:10px;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;position:relative;min-height:0;
+}
+.vqa-root video{width:100%;height:100%;object-fit:contain;display:block;}
+.vqa-root .vid-nav{display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.vqa-root .nav-btn{
+  padding:6px 14px;border-radius:7px;border:1px solid var(--border);
+  background:var(--surface);color:var(--text2);font-size:12px;cursor:pointer;
+  display:flex;align-items:center;gap:5px;transition:all .15s;
+}
+.vqa-root .nav-btn:hover{border-color:var(--accent);color:var(--accent);}
+.vqa-root .vid-ctr{font-family:var(--mono);font-size:11px;color:var(--text3);}
+
+/* META PANE */
+.vqa-root .meta-pane{
+  width:280px;flex-shrink:0;display:flex;flex-direction:column;
+  overflow-y:auto;padding:14px;gap:10px;
+}
+.vqa-root .meta-pane::-webkit-scrollbar{width:3px;}
+.vqa-root .meta-pane::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+.vqa-root .m-label{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1.2px;}
+.vqa-root .m-box{padding:10px 12px;border-radius:9px;border:1px solid var(--border);background:var(--surface);}
+.vqa-root .m-box .cap{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px;}
+.vqa-root .status-row{display:flex;align-items:center;gap:7px;}
+.vqa-root .sdot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.vqa-root .stext{font-size:13px;font-weight:600;}
+.vqa-root .m-row{display:flex;flex-direction:column;gap:2px;margin-bottom:6px;}
+.vqa-root .m-key{font-size:10px;color:var(--text3);}
+.vqa-root .m-val{font-size:12px;color:var(--text);word-break:break-all;}
+.vqa-root .m-val.mono{font-family:var(--mono);font-size:11px;}
+.vqa-root .divider{height:1px;background:var(--border);flex-shrink:0;}
+
+/* ACTION BAR */
+.vqa-root .action-bar{
+  padding:11px 14px;background:var(--surface);border-top:1px solid var(--border);
+  display:flex;flex-direction:column;gap:9px;flex-shrink:0;
+}
+.vqa-root .action-row{display:flex;gap:9px;align-items:center;flex-wrap:wrap;}
+.vqa-root .btn-approve{
+  padding:9px 20px;background:rgba(34,197,94,.1);color:var(--green);
+  border:1px solid rgba(34,197,94,.25);border-radius:9px;font-size:13px;font-weight:600;
+  cursor:pointer;display:flex;align-items:center;gap:5px;transition:all .15s;
+}
+.vqa-root .btn-approve:hover{background:rgba(34,197,94,.18);}
+.vqa-root .btn-approve.sel{background:var(--green);color:#fff;border-color:var(--green);}
+.vqa-root .btn-reject{
+  padding:9px 20px;background:rgba(239,68,68,.08);color:var(--red);
+  border:1px solid rgba(239,68,68,.22);border-radius:9px;font-size:13px;font-weight:600;
+  cursor:pointer;display:flex;align-items:center;gap:5px;transition:all .15s;
+}
+.vqa-root .btn-reject:hover{background:rgba(239,68,68,.15);}
+.vqa-root .btn-reject.sel{background:var(--red);color:#fff;border-color:var(--red);}
+.vqa-root .btn-clear-sel{
+  padding:9px 14px;background:var(--surface2);color:var(--text3);
+  border:1px solid var(--border);border-radius:9px;font-size:12px;
+  cursor:pointer;transition:all .15s;display:none;
+}
+.vqa-root .btn-clear-sel:hover{color:var(--text2);border-color:var(--border2);}
+.vqa-root .btn-clear-sel.show{display:block;}
+.vqa-root .btn-submit{
+  padding:9px 20px;background:var(--accent);color:#fff;border:none;border-radius:9px;
+  font-size:13px;font-weight:600;cursor:pointer;margin-left:auto;transition:all .15s;
+  display:flex;align-items:center;gap:5px;min-width:120px;justify-content:center;
+}
+.vqa-root .btn-submit:hover:not(:disabled){opacity:.88;}
+.vqa-root .btn-submit:disabled{opacity:.3;cursor:not-allowed;}
+.vqa-root .btn-submit.loading{opacity:.7;cursor:wait;}
+.vqa-root .kbd{font-family:var(--mono);font-size:10px;padding:1px 4px;border:1px solid currentColor;border-radius:3px;opacity:.5;}
+.vqa-root .cmt-row{display:flex;gap:9px;align-items:flex-start;}
+.vqa-root .cmt-area{
+  flex:1;padding:9px 11px;border-radius:9px;border:1px solid var(--border);
+  background:var(--surface2);color:var(--text);font-size:13px;font-family:var(--font-body);
+  resize:none;height:66px;outline:none;transition:border .15s;
+}
+.vqa-root .cmt-area:focus{border-color:var(--accent);}
+.vqa-root .reasons{display:flex;flex-wrap:wrap;gap:5px;max-width:260px;}
+.vqa-root .reason{
+  padding:5px 9px;border-radius:6px;border:1px solid rgba(239,68,68,.18);
+  background:rgba(239,68,68,.05);color:#f87171;font-size:11px;cursor:pointer;transition:all .13s;white-space:nowrap;
+}
+.vqa-root .reason:hover{background:rgba(239,68,68,.12);}
+.vqa-root .reason.active{background:var(--red);color:#fff;border-color:var(--red);}
+
+/* ══════════ SUMMARY PAGE ══════════ */
+.vqa-root .sum-page{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:14px;}
+.vqa-root .sum-page::-webkit-scrollbar{width:3px;}
+.vqa-root .sum-page::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+.vqa-root .sum-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+.vqa-root .sum-header h2{font-size:15px;font-weight:600;}
+.vqa-root .sum-filters{display:flex;gap:7px;flex-wrap:wrap;align-items:center;}
+.vqa-root .sum-filters select,.vqa-root .sum-filters input{
+  padding:6px 11px;border-radius:7px;border:1px solid var(--border);
+  background:var(--surface);color:var(--text);font-size:12px;font-family:var(--font-body);outline:none;
+}
+.vqa-root .sum-filters select:focus,.vqa-root .sum-filters input:focus{border-color:var(--accent);}
+.vqa-root .sum-filters select option{background:var(--surface2);}
+.vqa-root .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;}
+.vqa-root .kpi{
+  background:var(--surface);border:1px solid var(--border);border-radius:11px;
+  padding:14px;display:flex;flex-direction:column;gap:5px;
+}
+.vqa-root .kpi .klbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;}
+.vqa-root .kpi .kval{font-size:24px;font-weight:700;font-family:var(--mono);}
+.vqa-root .kpi .ksub{font-size:10px;color:var(--text3);}
+.vqa-root .tbl-wrap{background:var(--surface);border:1px solid var(--border);border-radius:11px;overflow:hidden;}
+.vqa-root .tbl-head{padding:11px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.vqa-root .tbl-head span{font-size:13px;font-weight:500;}
+.vqa-root table{width:100%;border-collapse:collapse;}
+.vqa-root thead th{
+  padding:9px 13px;text-align:left;font-size:10px;font-weight:600;
+  color:var(--text3);text-transform:uppercase;letter-spacing:.7px;
+  background:var(--surface2);white-space:nowrap;
+}
+.vqa-root tbody tr{border-top:1px solid var(--border);transition:background .1s;}
+.vqa-root tbody tr:hover{background:var(--surface2);}
+.vqa-root tbody td{padding:9px 13px;font-size:12px;color:var(--text2);}
+.vqa-root tbody td.mono{font-family:var(--mono);font-size:11px;}
+.vqa-root .jmp{
+  padding:3px 9px;border-radius:5px;border:1px solid var(--border);
+  background:var(--surface2);color:var(--accent2);font-size:11px;cursor:pointer;transition:all .12s;
+  text-decoration:none;display:inline-block;
+}
+.vqa-root .jmp:hover{border-color:var(--accent);background:rgba(59,130,246,.1);}
+.vqa-root .export-btn{
+  padding:6px 14px;border-radius:7px;background:var(--surface2);color:var(--text2);
+  border:1px solid var(--border);font-size:12px;cursor:pointer;transition:all .15s;
+  display:flex;align-items:center;gap:5px;
+}
+.vqa-root .export-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+/* ══════════ SETTINGS PANEL (slide-in) ══════════ */
+.vqa-root .settings-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;
+  display:flex;align-items:stretch;justify-content:flex-end;
+  opacity:0;pointer-events:none;transition:opacity .2s;
+}
+.vqa-root .settings-overlay.open{opacity:1;pointer-events:all;}
+.vqa-root .settings-panel{
+  width:500px;max-width:95vw;background:var(--surface);
+  border-left:1px solid var(--border2);display:flex;flex-direction:column;
+  transform:translateX(100%);transition:transform .22s cubic-bezier(.4,0,.2,1);
+  overflow:hidden;
+  height:100%;
+}
+.vqa-root .settings-overlay.open .settings-panel{transform:translateX(0);}
+.vqa-root .settings-panel-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.vqa-root .settings-panel-header h3{font-size:14px;font-weight:600;}
+.vqa-root .close-btn{
+  width:28px;height:28px;border-radius:6px;border:1px solid var(--border);
+  background:var(--surface2);color:var(--text2);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .15s;
+}
+.vqa-root .close-btn:hover{border-color:var(--accent);color:var(--accent);}
+.vqa-root .settings-scroll{
+  flex:1;overflow-y:auto;padding:16px;
+  display:flex;flex-direction:column;gap:12px;
+  min-height:0;
+}
+.vqa-root .settings-scroll::-webkit-scrollbar{width:4px;}
+.vqa-root .settings-scroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px;}
+.vqa-root .s-section{background:var(--surface2);border:1px solid var(--border);border-radius:11px;overflow:hidden;flex-shrink:0;}
+.vqa-root .s-section-head{
+  padding:11px 14px;font-size:12px;font-weight:600;color:var(--text2);
+  border-bottom:1px solid var(--border);display:flex;align-items:center;gap:7px;
+}
+.vqa-root .s-body{padding:14px;display:flex;flex-direction:column;gap:11px;}
+.vqa-root .s-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.vqa-root .s-lbl{font-size:12px;color:var(--text);}
+.vqa-root .s-sub{font-size:11px;color:var(--text3);margin-top:2px;}
+.vqa-root .s-input{
+  padding:7px 11px;border-radius:7px;border:1px solid var(--border);
+  background:var(--surface3);color:var(--text);font-size:12px;font-family:var(--font-body);
+  outline:none;transition:border .15s;min-width:170px;width:100%;
+}
+.vqa-root .s-input:focus{border-color:var(--accent);}
+/* font grid */
+.vqa-root .font-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.vqa-root .font-card{
+  padding:11px 12px;border-radius:8px;border:2px solid var(--border);
+  background:var(--surface3);cursor:pointer;transition:all .15s;
+}
+.vqa-root .font-card:hover{border-color:var(--border2);}
+.vqa-root .font-card.active{border-color:var(--accent);background:rgba(59,130,246,.06);}
+.vqa-root .font-card .fn{font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:4px;}
+.vqa-root .font-card .fp{font-size:14px;color:var(--text);}
+/* filter builder */
+.vqa-root .fb-row{display:flex;gap:7px;align-items:center;flex-wrap:wrap;}
+.vqa-root .fb-row select,.vqa-root .fb-row input{
+  padding:7px 10px;border-radius:7px;border:1px solid var(--border);
+  background:var(--surface3);color:var(--text);font-size:12px;font-family:var(--font-body);outline:none;
+}
+.vqa-root .btn-add{
+  padding:7px 14px;border-radius:7px;background:var(--accent);color:#fff;
+  border:none;font-size:12px;font-weight:600;cursor:pointer;transition:opacity .15s;
+}
+.vqa-root .btn-add:hover{opacity:.88;}
+.vqa-root .saved-list{display:flex;flex-direction:column;gap:6px;}
+.vqa-root .saved-item{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:9px 12px;border-radius:7px;background:var(--surface3);border:1px solid var(--border);
+}
+.vqa-root .saved-item .si-desc{font-size:12px;}
+.vqa-root .btn-del{
+  padding:3px 9px;border-radius:5px;border:1px solid rgba(239,68,68,.18);
+  background:rgba(239,68,68,.05);color:var(--red);font-size:11px;cursor:pointer;
+}
+.vqa-root .btn-del:hover{background:rgba(239,68,68,.12);}
+/* qc map */
+.vqa-root .qc-map td{padding:5px 7px;font-size:12px;}
+.vqa-root .qc-map input{
+  padding:5px 9px;border-radius:6px;border:1px solid var(--border);
+  background:var(--surface3);color:var(--text);font-size:12px;
+  font-family:var(--font-body);outline:none;width:100%;
+}
+.vqa-root .qc-map input:focus{border-color:var(--accent);}
+.vqa-root .btn-save{
+  padding:9px 22px;background:var(--accent);color:#fff;border:none;
+  border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s;
+}
+.vqa-root .btn-save:hover{opacity:.88;}
+.vqa-root .settings-footer{padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0;}
+
+/* ══════════ MODAL ══════════ */
+.vqa-root .modal-bg{
+  position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:400;
+  display:none;align-items:center;justify-content:center;
+}
+.vqa-root .modal-bg.open{display:flex;}
+.vqa-root .modal{
+  background:var(--surface);border:1px solid var(--border2);border-radius:14px;
+  padding:22px 26px;width:460px;max-width:95vw;
+  box-shadow:0 32px 64px rgba(0,0,0,.45);
+  display:flex;flex-direction:column;gap:12px;
+}
+.vqa-root .modal h3{font-size:15px;font-weight:600;}
+.vqa-root .modal p{font-size:12px;color:var(--text2);line-height:1.5;}
+.vqa-root .modal-input{
+  padding:9px 13px;border-radius:8px;border:1px solid var(--border);
+  background:var(--surface2);color:var(--text);font-size:13px;
+  font-family:var(--mono);outline:none;width:100%;
+}
+.vqa-root .modal-input:focus{border-color:var(--accent);}
+.vqa-root .modal-result{
+  font-size:11px;color:var(--text2);background:var(--surface2);
+  border-radius:7px;padding:9px 11px;max-height:130px;overflow-y:auto;
+  font-family:var(--mono);white-space:pre-wrap;display:none;
+}
+.vqa-root .modal-footer{display:flex;gap:8px;justify-content:flex-end;}
+.vqa-root .btn-cancel{
+  padding:8px 18px;border-radius:8px;border:1px solid var(--border);
+  background:var(--surface2);color:var(--text2);font-size:13px;cursor:pointer;
+}
+.vqa-root .btn-ok{
+  padding:8px 18px;border-radius:8px;background:var(--accent);
+  color:#fff;border:none;font-size:13px;font-weight:600;cursor:pointer;
+}
+
+/* ══════════ LOADING ══════════ */
+.vqa-root .load-over{
+  position:absolute;inset:0;background:rgba(0,0,0,.5);
+  display:flex;align-items:center;justify-content:center;z-index:10;border-radius:10px;
+}
+.vqa-root .spin{width:26px;height:26px;border:2px solid rgba(255,255,255,.1);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.vqa-root .no-vid{color:var(--text3);text-align:center;}
+.vqa-root .no-vid span{font-size:28px;display:block;margin-bottom:7px;}
+
+/* ══════════ TOAST ══════════ */
+.vqa-root .toast{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);
+  padding:10px 20px;border-radius:9px;font-size:13px;font-weight:500;
+  pointer-events:none;transition:transform .25s cubic-bezier(.34,1.4,.64,1);
+  z-index:9999;white-space:nowrap;box-shadow:0 6px 24px rgba(0,0,0,.4);
+}
+.vqa-root .toast.show{transform:translateX(-50%) translateY(0);}
+.vqa-root .toast.success{background:#166534;color:#fff;}
+.vqa-root .toast.error  {background:#991b1b;color:#fff;}
+.vqa-root .toast.info   {background:var(--accent);color:#fff;}
+.vqa-root .toast.warn   {background:#92400e;color:#fff;}
+
+/* scrollbars */
+.vqa-root__noop_scrollbar_drop{width:3px;height:3px;}
+.vqa-root__noop_scrollbar_drop{background:transparent;}
+.vqa-root__noop_scrollbar_drop{background:var(--border2);border-radius:3px;}
+
+/* REVIEWER BADGE */
+.vqa-root .rev-badge{
+  display:flex;align-items:center;gap:8px;padding:8px 10px;
+  border-radius:8px;width:100%;overflow:hidden;
+}
+.vqa-root .rev-avatar{
+  width:26px;height:26px;border-radius:50%;background:var(--accent);
+  color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.vqa-root .rev-name{font-size:12px;color:var(--text2);opacity:0;transition:opacity .18s .04s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.vqa-root .left-sidebar.open .rev-name{opacity:1;}
+
+/* Stats row */
+.vqa-root #statsRow{padding:8px 10px;border-bottom:1px solid var(--border);display:flex;gap:5px;flex-wrap:wrap;flex-shrink:0;}
+
 </style>
 </head>
 <body>
@@ -377,6 +1138,7 @@ tr:hover td{background:var(--bg2)}
       <button class="mode-pill" id="tabEdit" onclick="setMode('edited')">Re-Edit</button>
       <button class="mode-pill" id="tabTool" onclick="setMode('qc_tool')">QC Tool</button>
       <button class="mode-pill" id="tab360" onclick="setMode('360')">360</button>
+      <button class="mode-pill" id="tabVQA" onclick="setMode('videoqa')">Video QA</button>
     </div>
     <div class="t-space"></div>
     <div class="t-chip done-count" id="doneCounter" style="margin-right:6px">Done: 0</div>
@@ -514,7 +1276,361 @@ tr:hover td{background:var(--bg2)}
   </div>
 </div>
 
-<div class="bottom-ribbon">Managed by <a href="mailto:kishor@spyne.ai">kishor@spyne.ai</a></div>
+
+<!-- ════════════════ VIDEO QA — scoped container ════════════════ -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Sora:wght@400;500;600;700&family=Urbanist:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Fraunces:wght@400;500;600;700&display=swap">
+<div class="vqa-root hidden" id="videoQAContainer">
+  <div class="vqa-ribbon">made with ♥ for us</div>
+<!-- ══════════ ENTERPRISE PICKER ══════════ -->
+<div class="screen hidden" id="entScreen">
+  <div class="app-logo">⬡ VIDEO QC REVIEW</div>
+  <div class="ent-card">
+    <div class="ent-head">
+      <div>
+        <h2>Home</h2>
+        <p class="sub">Pick an enterprise to start QA, or filter by user / verified status.</p>
+      </div>
+      <div class="ent-head-actions">
+        <button class="ent-head-btn" id="entSyncBtn" onclick="vqa.entSync()" title="Sync data from sheet">
+          <span class="ico">↻</span> Sync
+        </button>
+        <button class="ent-head-btn danger" onclick="vqa.logout()" title="Logout">
+          <span class="ico">⏻</span> Logout
+        </button>
+      </div>
+    </div>
+    <div class="ent-search-row">
+      <input class="ent-search" id="entSearch" placeholder="🔍 Search enterprises by name…" oninput="vqa.renderEntList()" autocomplete="off"/>
+    </div>
+    <div class="ent-search-row" style="gap:8px;">
+      <select class="ent-search" id="entFilterUser" onchange="vqa.renderEntList()" style="flex:1;">
+        <option value="">All QC Users</option>
+      </select>
+      <select class="ent-search" id="entFilterStatus" onchange="vqa.renderEntList()" style="flex:1;">
+        <option value="">All QC Verified Statuses</option>
+        <option value="verified">✓ Verified</option>
+        <option value="rejected">✗ Rejected</option>
+      </select>
+    </div>
+    <div class="ent-total" id="entTotalBox">
+      <span class="lbl" id="entTotalLbl">Total available pending QA</span>
+      <span class="num" id="entTotal">—</span>
+    </div>
+    <div class="ent-list" id="entList"><div style="padding:20px;text-align:center;color:var(--text3);">Loading…</div></div>
+    <div class="ent-footer">
+      <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;">
+        <button class="link-btn" onclick="vqa.resetLocalCache()" style="color:var(--yellow);">⚠ Reset local cache</button>
+        <button class="link-btn" onclick="vqa.runDiagnostics()" style="color:var(--purple);">🔍 Run diagnostics</button>
+        <span id="entDebug" style="font-size:10px;color:var(--text3);font-family:var(--mono);"></span>
+      </div>
+      <button class="btn-outline" onclick="vqa.claimBatch(null)">Load All Pending →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MAIN SHELL ══════════ -->
+<div class="shell">
+
+  <!-- LEFT SIDEBAR -->
+  <div class="left-sidebar" id="leftSidebar">
+    <div class="sidebar-top" onclick="vqa.toggleSidebar()">
+      <div class="hamburger"><span></span><span></span><span></span></div>
+      <div class="sidebar-logo">QA DASH</div>
+    </div>
+
+    <div class="sidebar-nav">
+      <button class="snav-item active" id="snav-review" onclick="vqa.gotoReview()">
+        <span class="sico">▶</span><span class="snav-label">Review</span>
+      </button>
+      <button class="snav-item" id="snav-summary" onclick="vqa.showPage('summary')">
+        <span class="sico">◈</span><span class="snav-label">Summary</span>
+      </button>
+    </div>
+
+    <div class="sidebar-bottom">
+      <div class="sidebar-divider"></div>
+      <div class="rev-badge">
+        <div class="rev-avatar" id="revAvatar">—</div>
+        <div class="rev-name" id="revName">—</div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <button class="snav-item" id="snav-settings" onclick="vqa.showSettings()" style="display:none;">
+        <span class="sico">⚙</span><span class="snav-label">Settings</span>
+      </button>
+      <button class="snav-item" onclick="vqa.showEntScreen()">
+        <span class="sico">⌂</span><span class="snav-label">Home</span>
+      </button>
+      <button class="snav-item" onclick="vqa.toggleTheme()">
+        <span class="sico" id="themeIco">☀</span><span class="snav-label">Toggle Theme</span>
+      </button>
+      <button class="snav-item" onclick="vqa.logout()">
+        <span class="sico">⏻</span><span class="snav-label">Logout</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- MAIN AREA -->
+  <div class="main-area">
+
+    <!-- HEADER -->
+    <div class="header">
+      <div class="header-center">QA DASHBOARD</div>
+      <div class="header-right">
+        <span class="batch-pill" id="batchPill" style="display:none" onclick="vqa.showEntScreen()">— batch</span>
+        <div class="queue-badge synced" id="queueBadge" onclick="vqa.flushQueue()">✓ Synced</div>
+        <span class="sync-indicator" id="syncIndicator" title="Auto-syncs every 12s"><span class="dot"></span><span id="syncStatus">—</span></span>
+        <button class="icon-btn" id="refreshBtn" onclick="vqa.reloadData()" title="Sync data from sheet">↻</button>
+      </div>
+    </div>
+
+    <!-- APP BODY -->
+    <div class="app-body">
+
+      <!-- FILTER SIDEBAR -->
+      <div class="filter-sidebar" id="filterSidebar">
+        <div id="statsRow"><span style="font-size:10px;color:var(--text3);">Loading…</span></div>
+
+        <div class="filter-panel">
+          <div class="date-tabs">
+            <div class="date-tab active" data-v="all"       onclick="vqa.setDate(this,'all')">All</div>
+            <div class="date-tab"        data-v="today"     onclick="vqa.setDate(this,'today')">Today</div>
+            <div class="date-tab"        data-v="yesterday" onclick="vqa.setDate(this,'yesterday')">Yesterday</div>
+            <div class="date-tab"        data-v="week"      onclick="vqa.setDate(this,'week')">7d</div>
+          </div>
+          <div id="fEntWrap"><select id="fEnt"><option value="">All Enterprises</option></select></div>
+          <select id="fUser"><option value="">All QC Users</option></select>
+          <select id="fStatus">
+            <option value="">All Statuses</option>
+            <option value="verified">✓ Verified</option>
+            <option value="rejected">✗ Rejected</option>
+            <option value="done">◉ Done</option>
+          </select>
+          <div class="frow">
+            <input id="fVid" placeholder="Video ID…" oninput="vqa.applyFilter()" onkeydown="if(event.key==='Enter')vqa.applyFilter();"/>
+            <input id="fVin" placeholder="VIN…" oninput="vqa.applyFilter()" onkeydown="if(event.key==='Enter')vqa.applyFilter();"/>
+          </div>
+          <input id="fSku" placeholder="SKU…" oninput="vqa.applyFilter()" onkeydown="if(event.key==='Enter')vqa.applyFilter();"/>
+          <div class="frow">
+            <button class="btn-apply" onclick="vqa.applyFilter()">Apply</button>
+            <button class="btn-clear" onclick="vqa.clearFilters()">Clear</button>
+          </div>
+        </div>
+
+        <div class="toggle-row">
+          <label>
+            <label class="tog">
+              <input type="checkbox" id="togQAed" onchange="vqa.applyFilter()"/>
+              <span class="tog-slider"></span>
+            </label>
+            Show only QA'd videos
+          </label>
+        </div>
+
+        <!-- Custom filter chips -->
+        <div class="chip-section" id="chipSection" style="display:none">
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Quick Filters</div>
+          <div id="chips"></div>
+        </div>
+
+        <div class="video-list" id="videoList">
+          <div class="list-empty">Loading…</div>
+        </div>
+      </div>
+
+      <!-- CONTENT PAGES -->
+      <div class="content">
+
+        <!-- REVIEW PAGE -->
+        <div class="page active" id="page-review">
+          <div class="review-row">
+            <div class="video-pane">
+              <div class="vid-nav">
+                <button class="nav-btn" onclick="vqa.goPrev()">← Prev <span class="kbd">←</span></button>
+                <span class="vid-ctr" id="vidCtr">— / —</span>
+                <button class="nav-btn" onclick="vqa.goNext()">Next <span class="kbd">→</span></button>
+              </div>
+              <div class="video-wrap" id="videoWrap">
+                <div class="no-vid"><span>▶</span>Select a video</div>
+              </div>
+            </div>
+            <div class="meta-pane" id="metaPane">
+              <div class="m-label">Details</div>
+              <div style="font-size:12px;color:var(--text3);">Select a video from the list</div>
+            </div>
+          </div>
+          <div class="action-bar">
+            <div class="action-row">
+              <button class="btn-approve" id="btnApprove" onclick="vqa.toggleAction('Approved')">✓ Approve <span class="kbd">A</span></button>
+              <button class="btn-reject"  id="btnReject"  onclick="vqa.toggleAction('Rejected')">✗ Reject <span class="kbd">R</span></button>
+              <button class="btn-clear-sel" id="btnClearSel" onclick="vqa.clearAction()">✕ Clear</button>
+              <button class="btn-submit"  id="btnSubmit"  onclick="vqa.submitReview()" disabled>Submit <span class="kbd">↵</span></button>
+              <button class="btn-reqa" id="btnReQA" onclick="vqa.startReQA()" title="Reset QA status and re-mark this video">↺ Re-QA</button>
+            </div>
+            <div class="cmt-row">
+              <textarea class="cmt-area" id="comment" placeholder="Add comment or rejection reason…"></textarea>
+              <div class="reasons" id="reasons" style="display:none">
+                <div class="reason" onclick="vqa.toggleReason(this,'Voiceover Issue')">Voiceover</div>
+                <div class="reason" onclick="vqa.toggleReason(this,'Wrong Issues Marking')">Wrong Issues Marking</div>
+                <div class="reason" onclick="vqa.toggleReason(this,'Background Music Issue')">Music</div>
+                <div class="reason" onclick="vqa.toggleReason(this,'Image removeBG Issue')">removeBG</div>
+                <div class="reason" onclick="vqa.toggleReason(this,'Transition Issue')">Transition</div>
+                <div class="reason" onclick="vqa.toggleReason(this,'Data Issue')">Data</div>
+                <div class="reason" onclick="vqa.toggleReason(this,'Image Selection Issue')">Image Selection</div>
+                <div class="reason" onclick="vqa.toggleReason(this,'Repeated Images')">Repeated Images</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUMMARY PAGE -->
+        <div class="page" id="page-summary">
+          <div class="sum-page">
+            <div class="sum-header">
+              <h2>QA Summary</h2>
+              <div class="sum-filters">
+                <select id="sumEnt"  onchange="vqa.renderSummary()"><option value="">All Enterprises</option></select>
+                <select id="sumRev"  onchange="vqa.renderSummary()"><option value="">All Reviewers</option></select>
+                <select id="sumAct"  onchange="vqa.renderSummary()">
+                  <option value="">All Actions</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
+                <input id="sumFrom" type="date" onchange="vqa.renderSummary()"/>
+                <input id="sumTo"   type="date" onchange="vqa.renderSummary()"/>
+                <button class="export-btn" onclick="vqa.exportCSV()">⬇ Export CSV</button>
+              </div>
+            </div>
+            <div class="kpi-grid" id="kpiGrid"></div>
+            <div class="tbl-wrap">
+              <div class="tbl-head">
+                <span>Reviewed Videos</span>
+                <span id="sumCount" style="font-size:11px;color:var(--text3);font-family:var(--mono);">0 records</span>
+              </div>
+              <div style="overflow-x:auto;">
+                <table>
+                  <thead><tr><th>Video ID</th><th>Enterprise</th><th>VIN</th><th>Action</th><th>Reviewer</th><th>QC + QA Notes</th><th>Timestamp</th><th></th></tr></thead>
+                  <tbody id="sumTbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ SETTINGS SLIDE-IN (admin only) ══════════ -->
+<div class="settings-overlay" id="settingsOverlay" onclick="vqa.closeSettings(event)">
+  <div class="settings-panel" onclick="event.stopPropagation()">
+    <div class="settings-panel-header">
+      <h3>⚙ Settings</h3>
+      <button class="close-btn" onclick="vqa.closeSettingsPanel()">✕</button>
+    </div>
+    <div class="settings-scroll">
+
+      <div class="s-section">
+        <div class="s-section-head">🔤 Font Style</div>
+        <div class="s-body"><div class="font-grid" id="fontGrid"></div></div>
+      </div>
+
+      <div class="s-section">
+        <div class="s-section-head">🔗 QC Column Mapping</div>
+        <div class="s-body">
+          <p style="font-size:11px;color:var(--text3);">Map sheet column names to dashboard fields. Leave blank for defaults.</p>
+          <table class="qc-map" style="width:100%">
+            <tr><td style="color:var(--text2);width:130px;">QC Status column</td><td><input id="mapQcStatus" placeholder="e.g. verified_status"/></td></tr>
+            <tr><td style="color:var(--text2);">QC User column</td><td><input id="mapQcUser" placeholder="e.g. qc_user_email_id"/></td></tr>
+          </table>
+          <button class="btn-save" onclick="vqa.saveColMap()">Save Mapping</button>
+        </div>
+      </div>
+
+      <div class="s-section">
+        <div class="s-section-head">🎛 Custom Quick Filters</div>
+        <div class="s-body">
+          <div class="fb-row">
+            <input id="cfName" placeholder="Filter name" style="flex:1;min-width:110px;"/>
+            <select id="cfField">
+              <option value="status">Status</option>
+              <option value="enterprise">Enterprise</option>
+              <option value="qc_user">QC User</option>
+              <option value="dateFilter">Date</option>
+            </select>
+            <input id="cfVal" placeholder="Value" style="flex:1;min-width:90px;"/>
+            <button class="btn-add" onclick="vqa.addCF()">+ Add</button>
+          </div>
+          <div class="saved-list" id="cfList"></div>
+        </div>
+      </div>
+
+      <div class="s-section">
+        <div class="s-section-head">♻ Re-append QA Data</div>
+        <div class="s-body">
+          <p style="font-size:11px;color:var(--text3);">Force re-submit cached QA reviews to the sheet.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn-save" style="background:rgba(168,85,247,.2);color:#c084fc;border:1px solid rgba(168,85,247,.3);" onclick="vqa.openReappend()">Open Re-append Tool</button>
+            <button class="btn-save" style="background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.2);" onclick="vqa.clearCache()">Clear Local Cache</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="s-section">
+        <div class="s-section-head">👤 Email → Name Lookup</div>
+        <div class="s-body">
+          <div id="emailMapList"></div>
+          <div style="display:flex;gap:7px;margin-top:4px;flex-wrap:wrap;">
+            <input id="newEmail" class="s-input" placeholder="email@co.com" style="flex:1;"/>
+            <input id="newName"  class="s-input" placeholder="Display name" style="flex:1;"/>
+            <button class="btn-add" onclick="vqa.addEmailMap()">Add</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="s-section">
+        <div class="s-section-head">⚙ Sheet & API Config</div>
+        <div class="s-body">
+          <div class="s-row">
+            <div style="flex-shrink:0;"><div class="s-lbl">Sheet CSV URL</div><div class="s-sub">Published CSV from Google Sheets</div></div>
+            <input id="cfgSheet" class="s-input" placeholder="https://docs.google.com/…"/>
+          </div>
+          <div class="s-row">
+            <div style="flex-shrink:0;"><div class="s-lbl">Apps Script URL</div><div class="s-sub">doPost endpoint</div></div>
+            <input id="cfgGas" class="s-input" placeholder="https://script.google.com/…"/>
+          </div>
+          <button class="btn-save" onclick="vqa.saveCfg()">Save Config</button>
+        </div>
+      </div>
+
+    </div>
+    <div class="settings-footer">
+      <button class="btn-save" style="width:100%" onclick="vqa.closeSettingsPanel()">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ RE-APPEND MODAL ══════════ -->
+<div class="modal-bg" id="reappendModal">
+  <div class="modal">
+    <h3>♻ Re-append QA Data</h3>
+    <p>Enter a Video ID to re-submit its cached review, or leave blank to re-submit all.</p>
+    <input class="modal-input" id="reappendId" placeholder="Video ID (blank = all)"/>
+    <div class="modal-result" id="reappendResult"></div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="vqa.closeReappend()">Cancel</button>
+      <button class="btn-ok" onclick="vqa.doReappend()">Re-submit</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+</div>
+
+<div class="bottom-ribbon">made with ♥ for us</div>
 <div class="toast-shelf" id="toastShelf"></div>
 <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
 
@@ -875,10 +1991,26 @@ function buildQcsHtml(userStats) {
 
 function setMode(m){
   mode = m;
-  ['tabQC','tabEdit','tabTool','tab360'].forEach(id => _id(id).classList.remove('on'));
-  const activeTabId = m==='qc'?'tabQC':m==='edited'?'tabEdit':m==='qc_tool'?'tabTool':'tab360';
-  _id(activeTabId).classList.add('on');
-  
+  ['tabQC','tabEdit','tabTool','tab360','tabVQA'].forEach(id => { const el = _id(id); if (el) el.classList.remove('on'); });
+  const tabMap = { qc:'tabQC', edited:'tabEdit', qc_tool:'tabTool', '360':'tab360', videoqa:'tabVQA' };
+  const activeTabId = tabMap[m] || 'tabQC';
+  if (_id(activeTabId)) _id(activeTabId).classList.add('on');
+
+  // ─── VIDEO QA mode: hand off to the embedded module ───
+  if (m === 'videoqa') {
+    document.body.classList.add('vqa-mode');
+    _id('setupPage').style.display = 'none';
+    _id('reviewPage').style.display = 'none';
+    _id('doneCounter').style.display = 'none';
+    if (window.VideoQA) window.VideoQA.activate(user);
+    return;
+  } else {
+    document.body.classList.remove('vqa-mode');
+    if (window.VideoQA) window.VideoQA.deactivate();
+    _id('doneCounter').style.display = '';
+    _id('setupPage').style.display = 'flex';
+  }
+
   _id('contStdFilters').classList.toggle('hidden', m === '360');
   _id('cont360Filters').classList.toggle('hidden', m !== '360');
   _id('emptySetupMsg').classList.toggle('hidden', m === '360');
@@ -1245,6 +2377,1940 @@ window.onload = () => {
 ['userFilter360','entFilter360', 'issueFilter360', 'entFilter', 'qcUFilter'].forEach(id => {
   const el = _id(id); if (el) el.addEventListener('change', updateCount);
 });
+</script>
+<script>
+/* ════════════════ VIDEO QA — IIFE module ════════════════ */
+(function () {
+  // ─── BEGIN ORIGINAL VIDEO QA SCRIPT (variables/functions stay private) ───
+
+// ─────────────────────────────────────────────
+//  CONFIG
+// ─────────────────────────────────────────────
+// Live data is fetched from the Apps Script endpoint (no longer the published CSV)
+// so claims/releases are reflected in real time.
+let GAS_URL   = "https://script.google.com/macros/s/AKfycbzDcFmycnU2nGt4A0FHeSlPPyiHWqQzouyU4gml4G6u9U_BeJ3PVT4ti8PU4cqz7Zey/exec";
+// Legacy: only used if GAS_URL is not configured (kept as fallback)
+let SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQQviNsOTXM2LlIs5ipLiil6Nox9r6BH2o-7-WtgLbTKDIltzZlHXxnlWYm7KkJLfr1JsDM69wyevuT/pub?gid=846566121&single=true&output=csv";
+const CLAIM_TTL_MIN = 120;
+const ADMIN_EMAIL = "nitin.kumar@spyne.ai";
+// How often to poll for fresh data (ms)
+const POLL_INTERVAL_MS = 12000;
+
+const FONTS = [
+  /* Modern geometric sans */
+  {k:'geist',       lbl:'Geist',         fam:"'Geist',sans-serif",          prev:'Aa Bb 123'},
+  {k:'inter',       lbl:'Inter',         fam:"'Inter',sans-serif",          prev:'Aa Bb 123'},
+  {k:'manrope',     lbl:'Manrope',       fam:"'Manrope',sans-serif",        prev:'Aa Bb 123'},
+  /* Friendly humanist */
+  {k:'dm-sans',     lbl:'DM Sans',       fam:"'DM Sans',sans-serif",        prev:'Aa Bb 123'},
+  {k:'plus-jakarta',lbl:'Plus Jakarta',  fam:"'Plus Jakarta Sans',sans-serif",prev:'Aa Bb 123'},
+  {k:'outfit',      lbl:'Outfit',        fam:"'Outfit',sans-serif",         prev:'Aa Bb 123'},
+  /* Geometric / display */
+  {k:'space-grot',  lbl:'Space Grotesk', fam:"'Space Grotesk',sans-serif",  prev:'Aa Bb 123'},
+  {k:'sora',        lbl:'Sora',          fam:"'Sora',sans-serif",           prev:'Aa Bb 123'},
+  {k:'urbanist',    lbl:'Urbanist',      fam:"'Urbanist',sans-serif",       prev:'Aa Bb 123'},
+  /* Technical / mono-leaning */
+  {k:'ibm-plex',    lbl:'IBM Plex Sans', fam:"'IBM Plex Sans',sans-serif",  prev:'Aa Bb 123'},
+  {k:'jetbrains',   lbl:'JetBrains Mono',fam:"'JetBrains Mono',monospace",  prev:'Aa Bb 123'},
+  /* Serif for variety */
+  {k:'fraunces',    lbl:'Fraunces',      fam:"'Fraunces',serif",            prev:'Aa Bb 123'},
+];
+
+// ─────────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────────
+let reviewer     = {name:'',email:''};
+let allVideos    = [];
+let videos       = [];
+let filtered     = [];
+let claimedIds   = new Set();
+/* Issue #9: track videos the user just Re-QA'd so they stay out of the
+   QA'd filter and the Summary view until a fresh decision is made. */
+let reqaBlacklist = new Set();
+let currentIdx   = -1;
+let currentAction= null;
+let dateFilter   = 'all';
+let localReviews = {};
+let submitQueue  = [];
+let customFilters= [];
+let activeCF     = null;
+let emailMap     = {};
+let colMap       = {qcStatus:'',qcUser:''};
+let currentPage  = 'review';
+let curEnterprise= null;
+let sidebarOpen  = false;
+
+// ─────────────────────────────────────────────
+//  INIT
+// ─────────────────────────────────────────────
+function init() {
+  localReviews  = JSON.parse(ls('qa_local_reviews')  || '{}');
+  submitQueue   = JSON.parse(ls('qa_submit_queue')   || '[]');
+  customFilters = JSON.parse(ls('qa_custom_filters') || '[]');
+  emailMap      = JSON.parse(ls('qa_email_name_map') || '{}');
+  colMap        = JSON.parse(ls('qa_column_map')     || '{"qcStatus":"","qcUser":""}');
+  claimedIds    = new Set(JSON.parse(ls('qa_claimed_ids') || '[]'));
+  reqaBlacklist = new Set(JSON.parse(ls('qa_reqa_blacklist') || '[]'));
+  if (ls('qa_sheet_url')) SHEET_URL = ls('qa_sheet_url');
+  // Use 'qa_gas_url_v2' so the old cached URL from previous deployments is ignored.
+  // (The script's /exec URL changed when redeployed as a new deployment.)
+  if (ls('qa_gas_url_v2'))   GAS_URL   = ls('qa_gas_url_v2');
+  /* Issue #4: default to LIGHT theme on first load. */
+{ const _r = document.getElementById('videoQAContainer');
+  const _stored = ls('theme');
+  const _useLight = (_stored === 'light') || (_stored == null);
+  if (_r && _useLight) _r.classList.add('light');
+  /* sync the theme icon to current state */
+  const _ico = document.getElementById('themeIco');
+  if (_ico) _ico.textContent = _useLight ? '🌙' : '☀'; }
+  applyFont(ls('qa_font') || 'geist');
+  buildFontGrid();
+  renderCFList();
+  renderEmailMapUI();
+  loadCfgInputs();
+  updateQueueBadge();
+
+  const saved = ls('qa_reviewer');
+  if (saved) {
+    reviewer = JSON.parse(saved);
+    setReviewer();
+    showScreen('entScreen');
+    loadAllData().then(() => { buildEntList(); startPolling(); });
+  } else {
+    showScreen('loginScreen');
+  }
+}
+const ls = k => localStorage.getItem(k);
+const lsSet = (k,v) => localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
+
+function isAdmin() {
+  return reviewer.email && reviewer.email.toLowerCase() === ADMIN_EMAIL;
+}
+
+function setReviewer() {
+  document.getElementById('revName').textContent  = reviewer.name;
+  document.getElementById('revAvatar').textContent= reviewer.name.charAt(0).toUpperCase();
+  // Show Settings only for the admin email
+  document.getElementById('snav-settings').style.display = isAdmin() ? '' : 'none';
+}
+function showScreen(id) {
+  ['entScreen'].forEach(s => {  /* loginScreen removed; host provides login */
+    document.getElementById(s).classList.toggle('hidden', s !== id);
+  });
+}
+function hideScreens() {
+  /* loginScreen removed */
+  document.getElementById('entScreen').classList.add('hidden');
+}
+
+// ─────────────────────────────────────────────
+//  SIDEBAR
+// ─────────────────────────────────────────────
+function toggleSidebar() {
+  sidebarOpen = !sidebarOpen;
+  document.getElementById('leftSidebar').classList.toggle('open', sidebarOpen);
+}
+
+// ─────────────────────────────────────────────
+//  LOGIN — email + name only
+// ─────────────────────────────────────────────
+function doLogin() {
+  const name  = document.getElementById('loginName').value.trim();
+  const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+  if (!name || !email) { toast('Enter name and email','error'); return; }
+  if (!email.includes('@')) { toast('Enter a valid email','error'); return; }
+  reviewer = {name, email};
+  lsSet('qa_reviewer', reviewer);
+  setReviewer();
+  showScreen('entScreen');
+  loadAllData().then(() => { buildEntList(); startPolling(); });
+}
+/* removed: loginEmail input handler (login screen is provided by host) */
+function acceptHint() {
+  const h=document.getElementById('nameHint');
+  if (h._n) { document.getElementById('loginName').value=h._n; h.style.display='none'; }
+}
+/* removed: loginEmail keydown handler */
+/* removed: loginName keydown handler */
+function logout() {
+  stopPolling();
+  // Issue #2: use sendBeacon for guaranteed delivery during the
+  // page-unload caused by location.reload(). The previous postToSheet()
+  // (async fetch) was being aborted before it reached the server, so
+  // the videos stayed locked under the logged-out user.
+  if (claimedIds.size > 0 && reviewer.email) {
+    const payload = JSON.stringify({
+      action: 'release',
+      video_ids: [...claimedIds],
+      reviewer: reviewer.email,
+      timestamp: new Date().toISOString(),
+    });
+    let beaconOk = false;
+    try {
+      if (navigator.sendBeacon) {
+        beaconOk = navigator.sendBeacon(GAS_URL, new Blob([payload], {type:'text/plain'}));
+      }
+    } catch (e) { beaconOk = false; }
+    if (!beaconOk) {
+      /* fallback: synchronous-ish keepalive fetch then short delay */
+      try {
+        fetch(GAS_URL, {method:'POST', mode:'no-cors', keepalive:true,
+          headers:{'Content-Type':'text/plain'}, body:payload});
+      } catch (e) {}
+    }
+  }
+  /* Don't clear qa_reviewer here — Spyne's host is the source of truth
+     for identity. We just clear claim state and reload. */
+  localStorage.removeItem('qa_claimed_ids');
+  /* Give the beacon ~250ms to flush before reload tears down the page. */
+  setTimeout(() => location.reload(), 250);
+}
+
+// ─────────────────────────────────────────────
+//  CSV
+// ─────────────────────────────────────────────
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/).filter(l=>l.trim());
+  const split = row => {
+    const c=[]; let cur='',q=false;
+    for (let i=0;i<row.length;i++){
+      const ch=row[i];
+      if(ch==='"'){q=!q;}
+      else if(ch===','&&!q){c.push(cur.trim());cur='';}
+      else cur+=ch;
+    }
+    c.push(cur.trim()); return c;
+  };
+  const hdr = split(lines[0]);
+  return lines.slice(1).map(line=>{
+    const c=split(line),o={};
+    hdr.forEach((h,i)=>{o[h.trim()]=(c[i]||'').replace(/^"|"$/g,'').trim();});
+    return o;
+  });
+}
+
+// ─────────────────────────────────────────────
+//  CLAIM HELPERS — multi-user safety
+// ─────────────────────────────────────────────
+function isLockedByOther(v) {
+  // Done videos aren't "locked" — they're done
+  if (v.qa_status && v.qa_status.trim()) return false;
+  if (v.qa_state === 'done') return false;
+
+  const claimedBy = (v.qa_claimed_by || '').trim().toLowerCase();
+  if (!claimedBy) return false;
+  if (reviewer.email && claimedBy === reviewer.email.toLowerCase()) return false;
+  // If qa_state is in_progress, treat as locked regardless of timestamp parsing
+  // (server enforces TTL via expireStaleClaims trigger)
+  if (v.qa_state === 'in_progress') {
+    // Still respect the TTL on the client side as a fallback
+    const claimedAt = v.qa_claimed_at;
+    if (!claimedAt) return true;
+    const t = new Date(claimedAt);
+    if (isNaN(t)) return true;
+    const ageMin = (Date.now() - t.getTime()) / 60000;
+    return ageMin < CLAIM_TTL_MIN;
+  }
+  // Legacy fallback: claimed_by set but no state column
+  const claimedAt = v.qa_claimed_at;
+  if (!claimedAt) return false;
+  const t = new Date(claimedAt);
+  if (isNaN(t)) return false;
+  const ageMin = (Date.now() - t.getTime()) / 60000;
+  return ageMin < CLAIM_TTL_MIN;
+}
+function lockOwner(v) {
+  return (v.qa_claimed_by || '').trim();
+}
+
+// ─────────────────────────────────────────────
+//  LOAD DATA — live from Apps Script (real-time)
+// ─────────────────────────────────────────────
+let lastLoadError = null;
+async function loadAllData() {
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+  /* Issue #5: visible auto-sync indicator */
+  const _ind = document.getElementById('syncIndicator');
+  const _ist = document.getElementById('syncStatus');
+  if (_ind) _ind.classList.add('syncing');
+  if (_ist) _ist.textContent = 'syncing…';
+  const entBtn = document.getElementById('entSyncBtn');
+  if (entBtn) entBtn.classList.add('spinning');
+  lastLoadError = null;
+  try {
+    // Fetch live data from Apps Script (bypasses Google's published-CSV cache)
+    const url = GAS_URL + (GAS_URL.includes('?') ? '&' : '?') + 'action=list&_t=' + Date.now();
+    let res;
+    try {
+      res = await fetch(url, { method: 'GET', redirect: 'follow' });
+    } catch (netErr) {
+      lastLoadError = 'Network error: ' + netErr.message + ' — likely CORS or connection block';
+      throw netErr;
+    }
+    if (!res.ok) {
+      lastLoadError = 'HTTP ' + res.status + ' from Apps Script';
+      throw new Error(lastLoadError);
+    }
+    let json;
+    try {
+      json = await res.json();
+    } catch (jsonErr) {
+      lastLoadError = 'Bad response (not JSON) — Apps Script likely returned an HTML error page';
+      throw jsonErr;
+    }
+    if (!json.ok) {
+      lastLoadError = 'Server error: ' + (json.error || 'unknown');
+      throw new Error(lastLoadError);
+    }
+
+    const rows = json.rows || [];
+    allVideos = rows.map(r => {
+      const qsKey = colMap.qcStatus || 'qc_user';
+      const quKey = colMap.qcUser   || 'qc_user_email_id';
+      return {
+        video_id:     r['v.video_id'] || r['video_id'] || '',
+        enterprise:   r['enterprise_name'] || '',
+        enterprise_id:r['v.enterprise_id'] || r['enterprise_id'] || '',
+        qc_user:      r[quKey] || r['qc_user_email_id'] || '',
+        qc_status:    r[qsKey] || r['qc_status'] || r['verified_status'] || '',
+        status:       String(r['verified_status'] || '').toLowerCase(),
+        reason:       r['rejected_reason'] || '',
+        vin:          r['vin_name'] || '',
+        sku:          r['sku_id'] || '',
+        url:          r['video_url'] || '',
+        created:      r['created_on'] || '',
+        updated:      r['updated_on'] || '',
+        qa_status:    r['qa_status'] || '',
+        qa_reason:    r['qa_reason'] || '',
+        qa_reviewer:  r['qa_reviewer'] || '',
+        qa_timestamp: r['qa_timestamp'] || '',
+        qa_claimed_by:r['qa_claimed_by'] || '',
+        qa_claimed_at:r['qa_claimed_at'] || '',
+        qa_state:     String(r['qa_state'] || '').toLowerCase(),
+      };
+    }).filter(v => v.video_id && v.url);
+
+    // Auto-prune stale local cache (see note in pruneLocalReviews)
+    pruneLocalReviews();
+    /* clear any stale error from a previous failed load */
+    const _dbg = document.getElementById('entDebug');
+    if (_dbg) _dbg.textContent = '';
+    return true;
+  } catch(e) {
+    console.error('[loadAllData] FAILED:', e, lastLoadError);
+    // Show a longer-lasting visible error
+    const msg = lastLoadError || e.message || 'Failed to load live data';
+    toast(msg, 'error');
+    // Also bake into the debug line so it's visible after the toast disappears
+    const dbg = document.getElementById('entDebug');
+    if (dbg) dbg.textContent = '[error] ' + msg;
+    return false;
+  } finally {
+    btn.classList.remove('spinning');
+    if (entBtn) entBtn.classList.remove('spinning');
+    /* Issue #5: indicator cleanup */
+    const _ind2 = document.getElementById('syncIndicator');
+    const _ist2 = document.getElementById('syncStatus');
+    if (_ind2) _ind2.classList.remove('syncing');
+    if (_ist2) {
+      const t = new Date();
+      _ist2.textContent = (lastLoadError ? 'error' : 'synced ' +
+        String(t.getHours()).padStart(2,'0') + ':' +
+        String(t.getMinutes()).padStart(2,'0') + ':' +
+        String(t.getSeconds()).padStart(2,'0'));
+    }
+  }
+}
+
+// Drop local cache entries that the server has clearly absorbed (no longer
+// needed locally) OR that are stale from old testing sessions (>5 minutes old
+// AND server still has no record). NEVER drop fresh entries — the server
+// write is async via no-cors fetch and can take many seconds to propagate.
+function pruneLocalReviews() {
+  if (!Object.keys(localReviews).length) return;
+  const sheetVids = new Map();
+  allVideos.forEach(v => sheetVids.set(v.video_id, v));
+  const STALE_MS = 5 * 60 * 1000; // 5 minutes
+  const now = Date.now();
+  let dropped = 0;
+  Object.keys(localReviews).forEach(vid => {
+    const lr = localReviews[vid];
+    const v = sheetVids.get(vid);
+    if (!v) return; // Not in current sheet snapshot — keep
+
+    const serverDone = (v.qa_state === 'done') || (v.qa_status && v.qa_status.trim());
+    if (serverDone) {
+      // Server has it: cache is redundant, drop it.
+      delete localReviews[vid];
+      dropped++;
+      return;
+    }
+
+    // Server doesn't have it. Don't drop unless this entry is genuinely stale.
+    const ts = lr && lr.timestamp ? Date.parse(lr.timestamp) : NaN;
+    if (!isNaN(ts) && (now - ts) > STALE_MS) {
+      // Old entry the server never absorbed — likely from an aborted submit.
+      // Move it to the retry queue so flushQueue() can try again later
+      // instead of just losing the review.
+      if (!submitQueue.some(q => q.video_id === vid)) {
+        submitQueue.push(lr);
+      }
+      delete localReviews[vid];
+      dropped++;
+    }
+  });
+  if (dropped > 0) {
+    lsSet('qa_local_reviews', localReviews);
+    lsSet('qa_submit_queue', submitQueue);
+    updateQueueBadge();
+    console.log('[prune] reconciled', dropped, 'local review entries');
+  }
+}
+
+// ─────────────────────────────────────────────
+//  POLLING — keep dashboard in sync with the sheet
+// ─────────────────────────────────────────────
+let pollTimer = null;
+let isPolling = false;
+let lastClaimAt = 0; // timestamp of last successful claim — pause polls briefly after
+function startPolling() {
+  if (pollTimer) return;
+  pollTimer = setInterval(pollTick, POLL_INTERVAL_MS);
+}
+function stopPolling() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+async function pollTick() {
+  // Don't stack up requests — skip if a previous poll is still running
+  if (isPolling) return;
+  // Don't poll if the user is mid-review with an unsaved decision
+  if (currentAction) return;
+  // Don't poll if the tab is hidden (saves quota)
+  if (document.hidden) return;
+  // Don't poll for 15 seconds after a claim — the server needs time to fully
+  // commit our writes, and a poll during that window can show stale claim
+  // state, causing counts to "change" right after the user lands on review.
+  if (Date.now() - lastClaimAt < 15000) return;
+
+  isPolling = true;
+  try {
+    const ok = await loadAllData();
+    if (!ok) return;
+
+    // Refresh whichever screen is currently visible
+    const onEntScreen = !document.getElementById('entScreen').classList.contains('hidden');
+    if (onEntScreen) {
+      buildEntList();
+      return;
+    }
+
+    // On main dashboard — refresh the working video list WITHOUT reloading
+    // the currently-playing video.
+    const currentVid = (currentIdx >= 0 && filtered[currentIdx]) ? filtered[currentIdx].video_id : null;
+
+    // Rebuild videos pool from the current claim set (works across enterprises and filters)
+    if (claimedIds.size > 0) {
+      videos = allVideos.filter(v => claimedIds.has(v.video_id));
+    } else {
+      videos = [...allVideos];
+    }
+
+    // Recompute `filtered` inline (mirrors applyFilter logic, minus loadVideoAt)
+    const showQA = document.getElementById('togQAed').checked;
+    const ent    = document.getElementById('fEnt').value;
+    const user   = document.getElementById('fUser').value;
+    const status = document.getElementById('fStatus').value;
+    const vidId  = document.getElementById('fVid').value.trim().toLowerCase();
+    const vin    = document.getElementById('fVin').value.trim().toLowerCase();
+    const sku    = document.getElementById('fSku').value.trim().toLowerCase();
+
+    filtered = videos.filter(v=>{
+      if (isLockedByOther(v)) return false;
+      if (showQA) { if (!isQAed(v)) return false; }
+      else        { if (isQAed(v))  return false; }
+      if (ent    && v.enterprise!==ent)   return false;
+      if (user   && v.qc_user  !==user)   return false;
+      if (status && v.status   !==status) return false;
+      if (vidId  && !v.video_id.toLowerCase().includes(vidId)) return false;
+      if (vin    && !v.vin.toLowerCase().includes(vin))        return false;
+      if (sku    && !v.sku.toLowerCase().includes(sku))        return false;
+      if (!matchDate(v)) return false;
+      return true;
+    });
+
+    // Re-render list and stats (cheap, no video reload)
+    renderList();
+    updateStats();
+    updateBatchPill();
+
+    // Try to keep the current video selected
+    if (currentVid) {
+      const newIdx = filtered.findIndex(v => v.video_id === currentVid);
+      if (newIdx >= 0) {
+        currentIdx = newIdx;
+        document.querySelectorAll('.vitem').forEach((el,i)=>el.classList.toggle('active', i===currentIdx));
+        document.getElementById('vidCtr').textContent = `${currentIdx + 1} / ${filtered.length}`;
+        // Refresh the right-side metadata pane (status may have changed)
+        renderMeta(filtered[currentIdx]);
+      } else {
+        // Current video disappeared from filtered (e.g. another reviewer's claim,
+        // or it just got QA'd). Don't yank the player out from under the user.
+        document.getElementById('vidCtr').textContent = `— / ${filtered.length}`;
+      }
+    }
+  } finally {
+    isPolling = false;
+  }
+}
+
+function reloadData() {
+  loadAllData().then((ok)=>{
+    if (!ok) return;
+    applyBatch();
+    toast(`✓ ${allVideos.length} videos refreshed`,'success');
+  });
+}
+
+function entSync() {
+  loadAllData().then((ok)=>{
+    if (!ok) return;
+    buildEntList();
+    toast(`✓ Synced — ${allVideos.length} videos loaded`,'success');
+  });
+}
+
+// ─────────────────────────────────────────────
+//  QA CHECK
+// ─────────────────────────────────────────────
+function isQAed(v) {
+  /* Issue #9: a Re-QA'd video is treated as pending until resubmitted */
+  if (reqaBlacklist.has(v.video_id) && !localReviews[v.video_id]) return false;
+  if (v.qa_state === 'done') return true;
+  return !!(v.qa_status && v.qa_status.trim()) || !!localReviews[v.video_id];
+}
+
+// ─────────────────────────────────────────────
+//  ENTERPRISE PICKER
+// ─────────────────────────────────────────────
+function buildEntList() {
+  // Diagnostic line uses unfiltered totals
+  const totalRows = allVideos.length;
+  const lockedByOthers = allVideos.filter(v => isLockedByOther(v)).length;
+  const serverDone = allVideos.filter(v =>
+    (v.qa_state === 'done') || (v.qa_status && v.qa_status.trim())
+  ).length;
+  const myPending = allVideos.filter(v => !isQAed(v) && !isLockedByOther(v)).length;
+  const localOnly = Object.keys(localReviews).length;
+  const dbg = document.getElementById('entDebug');
+  if (dbg) {
+    dbg.textContent = `[debug] from-server=${totalRows} · server-done=${serverDone} · in-progress-by-others=${lockedByOthers} · local-cache=${localOnly} · pending=${myPending}`;
+  }
+
+  renderEntList();  // renderEntList now sets the top totals based on active filters
+}
+
+function resetLocalCache() {
+  if (!confirm('Clear local QA cache?\n\nThis removes any locally-saved review state in this browser. Sheet data is unaffected. Use this if the dashboard wrongly thinks videos are already QA\'d.')) return;
+  localReviews = {};
+  submitQueue = [];
+  localStorage.removeItem('qa_local_reviews');
+  localStorage.removeItem('qa_submit_queue');
+  updateQueueBadge();
+  toast('Local cache cleared — refreshing data','info');
+  loadAllData().then(() => buildEntList());
+}
+
+// Diagnostic tool — opens a popup with detailed connection info
+async function runDiagnostics() {
+  const lines = [];
+  const log = (s) => { lines.push(s); console.log('[diag]', s); };
+
+  log('=== QA Dashboard Diagnostics ===');
+  log('Time: ' + new Date().toISOString());
+  log('Origin: ' + window.location.origin + ' (protocol: ' + window.location.protocol + ')');
+  log('Reviewer: ' + (reviewer.email || '(none)'));
+  log('GAS_URL: ' + GAS_URL);
+  log('');
+  log('--- Test 1: GET ?action=list ---');
+  const url = GAS_URL + (GAS_URL.includes('?') ? '&' : '?') + 'action=list&_t=' + Date.now();
+  try {
+    const t0 = Date.now();
+    const res = await fetch(url, { method: 'GET', redirect: 'follow' });
+    const ms = Date.now() - t0;
+    log('  HTTP ' + res.status + ' (' + ms + 'ms)');
+    log('  Content-Type: ' + (res.headers.get('content-type') || '(none)'));
+    const text = await res.text();
+    log('  Body length: ' + text.length + ' bytes');
+    log('  First 300 chars: ' + text.slice(0, 300));
+    try {
+      const json = JSON.parse(text);
+      log('  JSON ok: ' + json.ok + ', rows: ' + (json.rows ? json.rows.length : '(no rows field)'));
+      if (json.rows && json.rows.length > 0) {
+        log('  Sample row keys: ' + Object.keys(json.rows[0]).join(', '));
+        log('  Sample qa_status: "' + json.rows[0].qa_status + '"');
+        log('  Sample qa_state:  "' + json.rows[0].qa_state + '"');
+        log('  Sample qa_claimed_by: "' + json.rows[0].qa_claimed_by + '"');
+      }
+    } catch (e) {
+      log('  ✗ JSON parse failed: ' + e.message);
+    }
+  } catch (e) {
+    log('  ✗ Fetch failed: ' + e.message);
+    log('  This is most likely a CORS or network issue.');
+    if (window.location.protocol === 'file:') {
+      log('  ⚠ You are running from file:// — CORS often blocks fetch responses');
+      log('     from this protocol. Serve via http(s):// instead.');
+    }
+  }
+
+  log('');
+  log('--- Test 2: local state ---');
+  log('  allVideos.length: ' + allVideos.length);
+  log('  localReviews: ' + Object.keys(localReviews).length + ' entries');
+  log('  submitQueue: ' + submitQueue.length);
+  log('  claimedIds: ' + claimedIds.size);
+
+  if (allVideos.length > 0) {
+    const pending = allVideos.filter(v => !isQAed(v) && !isLockedByOther(v));
+    const done = allVideos.filter(v => isQAed(v));
+    const locked = allVideos.filter(v => isLockedByOther(v));
+    log('  pending: ' + pending.length + ', done: ' + done.length + ', locked: ' + locked.length);
+    log('  Sample first row:');
+    log('    video_id="' + allVideos[0].video_id + '"');
+    log('    enterprise="' + allVideos[0].enterprise + '"');
+    log('    qa_status="' + allVideos[0].qa_status + '"');
+    log('    qa_state="' + allVideos[0].qa_state + '"');
+    log('    qa_claimed_by="' + allVideos[0].qa_claimed_by + '"');
+    log('    isQAed=' + isQAed(allVideos[0]) + ', isLockedByOther=' + isLockedByOther(allVideos[0]));
+    log('    in localReviews? ' + (allVideos[0].video_id in localReviews));
+  }
+
+  // Show in a popup-style div
+  const txt = lines.join('\n');
+  const w = window.open('', '_blank', 'width=900,height=700');
+  if (w) {
+    w.document.body.style.cssText = 'font-family:monospace;white-space:pre;padding:20px;background:#1a1d21;color:#e8ecf0;';
+    w.document.body.textContent = txt;
+  } else {
+    // Popup blocked — fallback to alert (truncated)
+    alert(txt.slice(0, 2000) + (txt.length > 2000 ? '\n\n...(truncated, see console)' : ''));
+    console.log(txt);
+  }
+}
+
+// Get the videos matching the current enterprise-screen filters (search, user, verified_status).
+// Use this for both rendering counts and deciding what to claim.
+function getEntFilteredVideos() {
+  const userF   = (document.getElementById('entFilterUser')?.value   || '').trim().toLowerCase();
+  const statusF = (document.getElementById('entFilterStatus')?.value || '').trim().toLowerCase();
+  return allVideos.filter(v => {
+    if (userF   && (v.qc_user || '').trim().toLowerCase() !== userF)   return false;
+    if (statusF && (v.status  || '').trim().toLowerCase() !== statusF) return false;
+    return true;
+  });
+}
+
+function renderEntList() {
+  const q = (document.getElementById('entSearch')?.value || '').trim().toLowerCase();
+
+  // Populate the QC user dropdown lazily from data (only first time / when missing)
+  const userSel = document.getElementById('entFilterUser');
+  if (userSel && userSel.options.length <= 1) {
+    const users = [...new Set(allVideos.map(v=>v.qc_user).filter(u=>u && u.includes('@')))].sort();
+    userSel.innerHTML = '<option value="">All QC Users</option>' +
+      users.map(u=>`<option value="${escAttr(u)}">${escH(u)}</option>`).join('');
+  }
+
+  // Apply user + verified_status filters
+  const filtered = getEntFilteredVideos();
+
+  const map = {};
+  filtered.forEach(v=>{
+    const e = v.enterprise || '(Unknown)';
+    if (!map[e]) map[e] = {total:0, pending:0, locked:0, done:0};
+    map[e].total++;
+    if (isQAed(v)) {
+      map[e].done++;
+    } else if (isLockedByOther(v)) {
+      map[e].locked++;
+    } else {
+      map[e].pending++;
+    }
+  });
+
+  let ents = Object.entries(map);
+  if (q) ents = ents.filter(([name]) => name.toLowerCase().includes(q));
+  ents.sort((a,b)=>b[1].pending - a[1].pending);
+
+  // Update the top "Total available pending" box to reflect the filtered subset
+  const totalRows = filtered.length;
+  const done = filtered.filter(v => isQAed(v)).length;
+  const lockedByOthers = filtered.filter(v => isLockedByOther(v)).length;
+  const availablePending = filtered.filter(v => !isQAed(v) && !isLockedByOther(v)).length;
+  const tb = document.getElementById('entTotal');
+  const lb = document.getElementById('entTotalLbl');
+  if (tb) tb.textContent = availablePending + ' available';
+  if (lb) lb.innerHTML = `Total ${totalRows} · Done ${done} · In progress ${lockedByOthers} · Available`;
+
+  const list = document.getElementById('entList');
+  if (!ents.length) {
+    list.innerHTML = q
+      ? `<div style="padding:20px;text-align:center;color:var(--text3);">No enterprises match "${escH(q)}"</div>`
+      : `<div style="padding:20px;text-align:center;color:var(--green);">🎉 No matching videos</div>`;
+    return;
+  }
+
+  list.innerHTML = ents.map(([name,counts])=>{
+    const lockedHtml = counts.locked > 0
+      ? `<span class="pill pill-locked" title="In progress by other reviewers">⏳ ${counts.locked} in progress</span>`
+      : '';
+    const hintParts = [`${counts.total} total`];
+    if (counts.pending > 0)  hintParts.push(`${counts.pending} available`);
+    if (counts.locked > 0)   hintParts.push(`${counts.locked} in progress by others`);
+    if (counts.done > 0)     hintParts.push(`${counts.done} done`);
+    const disabled = counts.pending === 0;
+    return `
+    <div class="ent-row">
+      <div>
+        <div class="name">${escH(name)}</div>
+        <div class="hint">${hintParts.join(' · ')}</div>
+      </div>
+      <div class="ent-row-right">
+        ${lockedHtml}
+        <span class="pill ${counts.pending>0?'pill-pending':(counts.done===counts.total?'pill-done':'pill-locked')}">${counts.pending} available</span>
+        <button class="claim-btn" onclick="vqa.claimBatch('${escAttr(name)}')" ${disabled?'disabled title="Nothing available right now"':''}>Start QA →</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function claimBatch(enterprise) {
+  curEnterprise = enterprise;
+
+  // Disable ALL claim buttons across the enterprise list and Load All Pending,
+  // and convert the clicked one to an "Assigning..." state.
+  const claimBtns = document.querySelectorAll('.claim-btn');
+  const loadAllBtn = document.querySelector('#entScreen .ent-footer .btn-outline');
+  const originalLabels = new Map(); // restore on failure
+  claimBtns.forEach(btn => {
+    originalLabels.set(btn, btn.innerHTML);
+    btn.disabled = true;
+    btn.style.cursor = 'not-allowed';
+    btn.style.opacity = '0.55';
+    // Mark which button initiated the claim so we can show "Assigning…" on it
+    const onclickAttr = btn.getAttribute('onclick') || '';
+    const isThisOne = enterprise && onclickAttr.includes(`'${escAttr(enterprise)}'`);
+    if (isThisOne || (!enterprise && btn === loadAllBtn)) {
+      btn.innerHTML = '<span class="spinner-inline"></span> Assigning…';
+    }
+  });
+  if (loadAllBtn) {
+    originalLabels.set(loadAllBtn, loadAllBtn.innerHTML);
+    loadAllBtn.disabled = true;
+    loadAllBtn.style.cursor = 'not-allowed';
+    loadAllBtn.style.opacity = '0.55';
+    if (!enterprise) {
+      loadAllBtn.innerHTML = '<span class="spinner-inline"></span> Assigning…';
+    }
+  }
+
+  const restoreButtons = () => {
+    originalLabels.forEach((html, btn) => {
+      btn.innerHTML = html;
+      btn.disabled = false;
+      btn.style.cursor = '';
+      btn.style.opacity = '';
+    });
+  };
+
+  // ATOMIC server-side claim. The server returns the actual video_ids it
+  // assigned to us, after re-checking the live sheet under a lock.
+  const reqBody = {
+    action: 'claim',
+    reviewer: reviewer.email,
+    timestamp: new Date().toISOString(),
+  };
+  // If the user has the QC user / verified_status filters set, pass an
+  // explicit list of video_ids so the server only claims matching rows.
+  // Otherwise keep the enterprise-only path (faster on the server side).
+  const userF   = (document.getElementById('entFilterUser')?.value   || '').trim().toLowerCase();
+  const statusF = (document.getElementById('entFilterStatus')?.value || '').trim().toLowerCase();
+  const hasFilters = !!(userF || statusF);
+  if (hasFilters) {
+    const matching = allVideos.filter(v => {
+      if (enterprise && v.enterprise !== enterprise) return false;
+      if (userF   && (v.qc_user || '').trim().toLowerCase() !== userF)   return false;
+      if (statusF && (v.status  || '').trim().toLowerCase() !== statusF) return false;
+      if (isQAed(v) || isLockedByOther(v)) return false;
+      return true;
+    });
+    reqBody.video_ids = matching.map(v => v.video_id);
+    if (!reqBody.video_ids.length) {
+      restoreButtons();
+      toast('No videos match the active filters', 'warn');
+      return;
+    }
+  } else if (enterprise) {
+    reqBody.enterprise = enterprise;
+  }
+
+  let claimResult;
+  try {
+    claimResult = await postToSheetReadable(reqBody);
+  } catch (e) {
+    restoreButtons();
+    toast('Claim failed — check connection and try again', 'error');
+    console.error('claim error:', e);
+    return;
+  }
+  if (!claimResult || !claimResult.ok) {
+    restoreButtons();
+    toast('Claim rejected by server' + (claimResult && claimResult.error ? ': ' + claimResult.error : ''), 'error');
+    return;
+  }
+  const claimed = Array.isArray(claimResult.claimed) ? claimResult.claimed : [];
+  const skipped = Array.isArray(claimResult.skipped) ? claimResult.skipped : [];
+  if (claimed.length === 0) {
+    // Apply skipped rows' new state locally for instant UI feedback
+    const nowISO0 = new Date().toISOString();
+    skipped.forEach(s => {
+      if (s.reason === 'locked_by_other' && s.id && s.owner) {
+        const v = allVideos.find(x => x.video_id === s.id);
+        if (v) {
+          v.qa_claimed_by = s.owner;
+          v.qa_claimed_at = nowISO0;
+          v.qa_state = 'in_progress';
+        }
+      }
+    });
+    restoreButtons();
+    buildEntList(); // re-render with new lock state
+    toast(skipped.length
+      ? `Nothing claimed — ${skipped.length} videos were already taken by other reviewers`
+      : 'No available videos to claim — try another enterprise',
+      'warn');
+    return;
+  }
+
+  claimedIds = new Set(claimed);
+  lsSet('qa_claimed_ids', [...claimedIds]);
+  lastClaimAt = Date.now();
+  /* Round 9: review session has officially started — show Home + Review */
+  const _r_inrev = document.getElementById('videoQAContainer');
+  if (_r_inrev) _r_inrev.classList.add('in-review');
+
+  // OPTIMIZATION: Don't refetch the whole sheet — server already told us which
+  // IDs we got. Mark them locally as claimed-by-us so the UI is correct without
+  // the round-trip. The next poll (12s) will reconcile any drift.
+  const nowISO = new Date().toISOString();
+  const claimedSet = new Set(claimed);
+  allVideos.forEach(v => {
+    if (claimedSet.has(v.video_id)) {
+      v.qa_claimed_by = reviewer.email;
+      v.qa_claimed_at = nowISO;
+      v.qa_state = 'in_progress';
+    }
+  });
+  // Also mark skipped-by-other rows so the UI reflects them
+  skipped.forEach(s => {
+    if (s.reason === 'locked_by_other' && s.id) {
+      const v = allVideos.find(x => x.video_id === s.id);
+      if (v && s.owner) {
+        v.qa_claimed_by = s.owner;
+        v.qa_claimed_at = nowISO;
+        v.qa_state = 'in_progress';
+      }
+    }
+  });
+
+  // Build the working video pool from the IDs we actually claimed.
+  // This automatically respects any filters that were applied at claim time
+  // (because we passed video_ids to the server when filters were active),
+  // and works correctly across multiple enterprises (Load All Pending case).
+  videos = allVideos.filter(v => claimedIds.has(v.video_id));
+
+  // Render filter dropdowns and stats BEFORE switching screens, so the
+  // review screen has all UI ready when shown.
+  populateSidebarFilters();
+  populateSumFilters();
+
+  // Carry the home-screen filters into the review-screen filters so the
+  // user can see what they filtered by, and so the review list visibly
+  // reflects the filter (not just the underlying pool).
+  if (userF) {
+    const fUserEl = document.getElementById('fUser');
+    if (fUserEl && [...fUserEl.options].some(o => o.value.toLowerCase() === userF)) {
+      fUserEl.value = [...fUserEl.options].find(o => o.value.toLowerCase() === userF).value;
+    }
+  }
+  if (statusF) {
+    const fStatusEl = document.getElementById('fStatus');
+    if (fStatusEl) fStatusEl.value = statusF;
+  }
+  // Only set the enterprise filter if we claimed from a single enterprise
+  // (not Load All Pending across multiple). Hide the enterprise dropdown
+  // entirely in single-enterprise mode — the user already chose one, so
+  // the dropdown is just clutter.
+  const fEntWrap = document.getElementById('fEntWrap');
+  if (enterprise) {
+    const fEntEl = document.getElementById('fEnt');
+    if (fEntEl && [...fEntEl.options].some(o => o.value === enterprise)) {
+      fEntEl.value = enterprise;
+    }
+    if (fEntWrap) fEntWrap.style.display = 'none';
+  } else {
+    if (fEntWrap) fEntWrap.style.display = '';
+  }
+
+  applyFilter();
+  updateStats();
+  updateBatchPill();
+
+  // Switch screens — but DON'T restore buttons yet. We'll restore them
+  // once the first video has loaded metadata (or after a 6s safety timeout),
+  // so the user sees "Assigning…" persist through the actual loading time
+  // rather than flashing back to "Start QA".
+  hideScreens();
+
+  const restoreOnceVideoReady = () => {
+    if (restoredAlready) return;
+    restoredAlready = true;
+    restoreButtons();
+  };
+  let restoredAlready = false;
+  // Hook the video element if one exists (loadVideoAt was just called via applyFilter)
+  const player = document.getElementById('player');
+  if (player) {
+    const finish = () => restoreOnceVideoReady();
+    player.addEventListener('loadedmetadata', finish, { once: true });
+    player.addEventListener('error',          finish, { once: true });
+  }
+  // Safety: never leave buttons in loading state forever
+  setTimeout(restoreOnceVideoReady, 6000);
+
+  const skippedNote = skipped.length ? ` (${skipped.length} were taken by others)` : '';
+  toast(`✓ Claimed ${claimed.length} video${claimed.length===1?'':'s'}${enterprise?' from '+enterprise:''}${skippedNote}`,'success');
+}
+
+function _setHomeMode(on) {
+  /* Legacy alias kept for any callers still using the old name. */
+  const r = document.getElementById('videoQAContainer');
+  if (!r) return;
+  if (on) r.classList.remove('in-review');
+}
+function showEntScreen() {
+  /* Round 9: leaving review session — clear .in-review so Home + Review
+     buttons hide. */
+  const _r_es = document.getElementById('videoQAContainer');
+  if (_r_es) _r_es.classList.remove('in-review');
+  // Auto-release current claims that the user hasn't QA'd yet
+  const unfinished = [...claimedIds].filter(id => !localReviews[id]);
+  if (unfinished.length > 0) {
+    postToSheet({action:'release', video_ids:unfinished, reviewer:reviewer.email, timestamp:new Date().toISOString()});
+  }
+  claimedIds = new Set();
+  lsSet('qa_claimed_ids', []);
+  curEnterprise = null;
+  document.getElementById('batchPill').style.display = 'none';
+
+  // Restore the review-screen enterprise dropdown for the next claim
+  const fEntWrap = document.getElementById('fEntWrap');
+  if (fEntWrap) fEntWrap.style.display = '';
+
+  buildEntList();
+  showScreen('entScreen');
+}
+
+function updateBatchPill() {
+  const p = document.getElementById('batchPill');
+  const done = [...claimedIds].filter(id=>localReviews[id]).length;
+  const total = claimedIds.size;
+  if (!total) { p.style.display='none'; return; }
+  p.style.display='inline-flex';
+  p.textContent = `${curEnterprise||'All'} · ${done}/${total}`;
+}
+
+// ─────────────────────────────────────────────
+//  BATCH → FILTER PIPELINE
+// ─────────────────────────────────────────────
+function applyBatch() {
+  if (claimedIds.size > 0) {
+    // Pool = exactly what the user has claimed (works across enterprises and filters)
+    videos = allVideos.filter(v => claimedIds.has(v.video_id));
+  } else {
+    videos = [...allVideos];
+  }
+  applyFilter();
+}
+
+// ─────────────────────────────────────────────
+//  FILTERS
+// ─────────────────────────────────────────────
+function setDate(el, v) {
+  document.querySelectorAll('.date-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active'); dateFilter=v; applyFilter();
+}
+function dateBound(daysAgo) {
+  const d=new Date(); d.setDate(d.getDate()-daysAgo); d.setHours(0,0,0,0); return d;
+}
+function matchDate(v) {
+  if (dateFilter==='all') return true;
+  const raw=v.created||v.updated; if(!raw) return true;
+  const d=new Date(raw); if(isNaN(d)) return true;
+  if (dateFilter==='today')     return d>=dateBound(0);
+  if (dateFilter==='yesterday') return d>=dateBound(1)&&d<dateBound(0);
+  if (dateFilter==='week')      return d>=dateBound(7);
+  return true;
+}
+function populateSidebarFilters() {
+  const ents  = [...new Set(videos.map(v=>v.enterprise).filter(Boolean))].sort();
+  const users = [...new Set(videos.map(v=>v.qc_user).filter(u=>u&&u.includes('@')))].sort();
+  document.getElementById('fEnt').innerHTML  = '<option value="">All Enterprises</option>'+ents.map(e=>`<option value="${escAttr(e)}">${escH(e)}</option>`).join('');
+  document.getElementById('fUser').innerHTML = '<option value="">All QC Users</option>'   +users.map(u=>`<option value="${escAttr(u)}">${escH(u)}</option>`).join('');
+}
+
+function applyFilter(cfObj) {
+  const ent    = document.getElementById('fEnt').value;
+  const user   = document.getElementById('fUser').value;
+  const status = document.getElementById('fStatus').value;
+  const vidId  = document.getElementById('fVid').value.trim().toLowerCase();
+  const vin    = document.getElementById('fVin').value.trim().toLowerCase();
+  const sku    = document.getElementById('fSku').value.trim().toLowerCase();
+  const showQA = document.getElementById('togQAed').checked;
+  const cf     = cfObj || null;
+
+  filtered = videos.filter(v=>{
+    // Multi-user: hide videos locked by other reviewers
+    if (isLockedByOther(v)) return false;
+    // Toggle: ON = only QA'd; OFF = only pending
+    if (showQA) {
+      if (!isQAed(v)) return false;
+    } else {
+      if (isQAed(v)) return false;
+    }
+    if (ent    && v.enterprise!==ent)   return false;
+    if (user   && v.qc_user  !==user)   return false;
+    if (status && v.status   !==status) return false;
+    if (vidId  && !(v.video_id||'').toLowerCase().includes(vidId)) return false;
+    if (vin    && !(v.vin     ||'').toLowerCase().includes(vin))   return false;
+    if (sku    && !(v.sku     ||'').toLowerCase().includes(sku))   return false;
+    if (!matchDate(v)) return false;
+    if (cf) {
+      if (cf.field==='status'     && v.status    !==cf.value) return false;
+      if (cf.field==='enterprise' && v.enterprise!==cf.value) return false;
+      if (cf.field==='qc_user'   && v.qc_user    !==cf.value) return false;
+      if (cf.field==='dateFilter') {
+        const old=dateFilter; dateFilter=cf.value;
+        const p=matchDate(v); dateFilter=old; if(!p) return false;
+      }
+    }
+    return true;
+  });
+
+  renderList(); updateStats(); updateBatchPill();
+  if (filtered.length) loadVideoAt(0);
+  else {
+    currentIdx=-1;
+    const showQAed = document.getElementById('togQAed').checked;
+    const msg = showQAed
+      ? 'No QA\'d videos yet'
+      : '🎉 All caught up — no pending videos';
+    document.getElementById('videoWrap').innerHTML=`<div class="no-vid"><span>${showQAed?'◈':'🎉'}</span>${msg}</div>`;
+    document.getElementById('metaPane').innerHTML ='<div class="m-label">Details</div><div style="font-size:12px;color:var(--text3);">No videos match</div>';
+    document.getElementById('vidCtr').textContent ='0 / 0';
+  }
+}
+
+function clearFilters() {
+  ['fEnt','fUser','fStatus','fVid','fVin','fSku'].forEach(id=>document.getElementById(id).value='');
+  document.querySelectorAll('.date-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelector('.date-tab[data-v="all"]').classList.add('active');
+  dateFilter='all'; activeCF=null; renderChips(); applyFilter();
+}
+
+// ─────────────────────────────────────────────
+//  CUSTOM FILTER CHIPS
+// ─────────────────────────────────────────────
+function renderChips() {
+  const sec=document.getElementById('chipSection');
+  const wrap=document.getElementById('chips');
+  if (!customFilters.length){sec.style.display='none';return;}
+  sec.style.display='block';
+  wrap.innerHTML=customFilters.map((f,i)=>
+    `<span class="chip${activeCF===i?' active':''}" onclick="vqa.applyCF(${i})">
+      ${escH(f.name)} <span class="x" onclick="event.stopPropagation();removeCF(${i})">✕</span>
+    </span>`
+  ).join('');
+}
+function applyCF(i) {
+  activeCF = activeCF===i ? null : i;
+  renderChips();
+  applyFilter(activeCF!==null ? customFilters[activeCF] : null);
+  showPage('review');
+}
+function removeCF(i) {
+  customFilters.splice(i,1); lsSet('qa_custom_filters',customFilters);
+  if (activeCF===i) activeCF=null;
+  renderChips(); renderCFList();
+}
+
+// ─────────────────────────────────────────────
+//  RENDER LIST
+// ─────────────────────────────────────────────
+function renderList() {
+  const list=document.getElementById('videoList');
+  if (!filtered.length) {
+    const showQAed = document.getElementById('togQAed').checked;
+    const msg = showQAed
+      ? 'No QA\'d videos yet — toggle off to see pending'
+      : '🎉 No pending videos — toggle on to see your QA history';
+    list.innerHTML=`<div class="list-empty">${msg}</div>`; return;
+  }
+  list.innerHTML=filtered.map((v,i)=>{
+    const lr=localReviews[v.video_id];
+    const shQA=v.qa_status&&v.qa_status.trim();
+    const ds=lr?lr.action:shQA?v.qa_status:v.status;
+    const b=badge(ds,!!lr,!!shQA);
+    return `<div class="vitem${i===currentIdx?' active':''}" id="vi-${i}" onclick="vqa.loadVideoAt(${i})">
+      <div class="vitem-name">${escH(v.enterprise||'—')}</div>
+      <div class="vbadge ${b.c}">${b.l}</div>
+      <div class="vitem-id">${escH(v.video_id)}</div>
+      <div class="vitem-date">${(v.created||'').slice(0,10)}</div>
+    </div>`;
+  }).join('');
+}
+function badge(status, isLocal=false, isSheetQA=false) {
+  if (isLocal) {
+    const s=(status||'').toLowerCase();
+    if (s==='approved') return {c:'b-qa',l:'★ QA Approved'};
+    if (s==='rejected') return {c:'b-qa',l:'★ QA Rejected'};
+    return {c:'b-qa',l:'★ QA Saved'};
+  }
+  if (isSheetQA) {
+    const s=(status||'').toLowerCase();
+    if (s==='approved'||s==='verified') return {c:'b-verified',l:'✓ QA Done'};
+    if (s==='rejected')                 return {c:'b-rejected',l:'✗ QA Done'};
+    return {c:'b-done',l:'◉ QA Done'};
+  }
+  if (!status) return {c:'b-pending',l:'Pending'};
+  const s=status.toLowerCase();
+  if (s==='verified'||s==='approved') return {c:'b-verified',l:'✓ Verified'};
+  if (s==='rejected')                 return {c:'b-rejected',l:'✗ Rejected'};
+  if (s==='done')                     return {c:'b-done',    l:'◉ Done'};
+  return {c:'b-pending',l:s};
+}
+const escH = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const escAttr = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+
+// ─────────────────────────────────────────────
+//  LOAD VIDEO
+// ─────────────────────────────────────────────
+function loadVideoAt(idx) {
+  if (idx<0||idx>=filtered.length) return;
+  currentIdx=idx; currentAction=null;
+  clearActionUI();
+  /* Issue #5: toggle qad-mode on action-row */
+  const _v_for_qad = filtered[idx];
+  const _wasQAd = !!(_v_for_qad && (
+    (_v_for_qad.qa_status && _v_for_qad.qa_status.trim()) ||
+    (localReviews[_v_for_qad.video_id])
+  ));
+  const _row = document.querySelector('.action-row');
+  if (_row) _row.classList.toggle('qad-mode', _wasQAd);
+
+  const v=filtered[idx];
+  const lr=localReviews[v.video_id];
+  if (lr) {
+    document.getElementById('comment').value=lr.comment||'';
+    currentAction=lr.action;
+    document.getElementById('btnApprove').classList.toggle('sel',lr.action==='Approved');
+    document.getElementById('btnReject').classList.toggle('sel', lr.action==='Rejected');
+    document.getElementById('reasons').style.display=lr.action==='Rejected'?'flex':'none';
+    document.getElementById('btnSubmit').disabled=false;
+    document.getElementById('btnClearSel').classList.add('show');
+  }
+
+  const wrap=document.getElementById('videoWrap');
+  wrap.innerHTML=`
+    <div class="load-over" id="lo"><div class="spin"></div></div>
+    <video id="player" controls preload="metadata">
+      <source src="${escAttr(v.url)}" type="video/mp4"/>
+    </video>`;
+  const p=document.getElementById('player');
+  p.oncanplay=()=>{ const lo=document.getElementById('lo'); if(lo)lo.remove(); };
+  p.onerror  =()=>{ const lo=document.getElementById('lo'); if(lo)lo.remove(); wrap.innerHTML='<div class="no-vid"><span>⚠</span>Video unavailable</div>'; };
+
+  document.getElementById('vidCtr').textContent=`${idx+1} / ${filtered.length}`;
+  renderMeta(v);
+  document.querySelectorAll('.vitem').forEach((el,i)=>el.classList.toggle('active',i===idx));
+  document.getElementById(`vi-${idx}`)?.scrollIntoView({block:'nearest',behavior:'smooth'});
+}
+
+// ─────────────────────────────────────────────
+//  META
+// ─────────────────────────────────────────────
+function renderMeta(v) {
+  const lr=localReviews[v.video_id];
+  const shQA=v.qa_status&&v.qa_status.trim();
+  const eff=lr?lr.action:shQA?v.qa_status:v.status;
+  const inQ=submitQueue.some(q=>q.video_id===v.video_id);
+  const dot=
+    (eff==='Approved'||eff==='verified')?'var(--green)':
+    (eff==='Rejected'||eff==='rejected')?'var(--red)':
+     eff==='done'?'var(--accent2)':'var(--text3)';
+  const syncNote=inQ?`<div style="margin-top:5px;font-size:11px;color:var(--yellow)">⏳ Pending sync</div>`
+    :lr?`<div style="margin-top:5px;font-size:11px;color:var(--green)">✓ Synced</div>`:'';
+  const qcStat = v.qc_status || v.status || '';
+  const qcDisp = qcStat || '—';
+  const owner = lockOwner(v);
+  const ownerNote = owner && reviewer.email && owner.toLowerCase() === reviewer.email.toLowerCase()
+    ? `<div style="margin-top:5px;font-size:11px;color:var(--accent2)">🔒 Claimed by you</div>`
+    : '';
+
+  /* ── Issue #1 fix: explicit, prominent QA decision + comments ── */
+  const qaDecision = (v.qa_status || '').trim();
+  const qaReason   = (v.qa_reason || '').trim();      // QA reviewer's reject comment
+  const qcReject   = (v.reason    || '').trim();      // QC pipeline's reject comment
+  const qaTime     = v.qa_timestamp ? new Date(v.qa_timestamp).toLocaleString() : '';
+  const isQAApproved = qaDecision.toLowerCase() === 'approved';
+  const isQARejected = qaDecision.toLowerCase() === 'rejected';
+
+  let qaBlock = '';
+  if (isQAApproved) {
+    qaBlock = `
+      <div class="qa-approval-box">
+        <div class="qa-lbl">QA Decision</div>
+        <div style="font-size:13px;font-weight:600;">✓ Approved by ${escH(v.qa_reviewer || 'reviewer')}</div>
+        ${qaTime ? `<div style="margin-top:3px;font-size:10.5px;opacity:.85;">${escH(qaTime)}</div>` : ''}
+        ${qaReason ? `<div style="margin-top:6px;font-size:11px;color:var(--text);">Note: ${escH(qaReason)}</div>` : ''}
+      </div>`;
+  } else if (isQARejected) {
+    qaBlock = `
+      <div class="qa-rejection-box">
+        <div class="qa-lbl">QA Decision</div>
+        <div style="font-size:13px;font-weight:600;">✗ Rejected by ${escH(v.qa_reviewer || 'reviewer')}</div>
+        ${qaTime ? `<div style="margin-top:3px;font-size:10.5px;opacity:.85;">${escH(qaTime)}</div>` : ''}
+        ${qaReason ? `<div style="margin-top:6px;font-size:11.5px;color:var(--text);">Comment: ${escH(qaReason)}</div>`
+                   : `<div style="margin-top:6px;font-size:11px;opacity:.7;">(no comment provided)</div>`}
+      </div>`;
+  }
+
+  /* QC's own rejected_reason — renders ABOVE the QA decision so the
+     original QC issue is the first thing the reviewer sees on a QA'd
+     video. Issue #5 (round 5). */
+  const qcRejectBlock = qcReject ? `
+    <div class="qc-rejection-box">
+      <div class="qa-lbl">Original QC Rejection Reason</div>
+      <div style="margin-top:3px;font-size:11.5px;color:var(--text);word-break:break-word;">${escH(qcReject)}</div>
+    </div>` : '';
+
+  document.getElementById('metaPane').innerHTML=`
+    <div class="m-label">Current Status</div>
+    <div class="m-box">
+      <div class="cap">Review Decision</div>
+      <div class="status-row"><div class="sdot" style="background:${dot}"></div><div class="stext" style="color:${dot}">${escH(eff||'Pending Review')}</div></div>
+      ${syncNote}
+      ${ownerNote}
+    </div>
+    ${qcRejectBlock}
+    ${qaBlock}
+    <div class="m-label">QC Status</div>
+    <div class="m-box">
+      <div class="cap">QC Processing</div>
+      <div class="status-row"><div class="sdot" style="background:${qcDisp==='—'?'var(--text3)':'var(--accent)'}"></div><div class="stext" style="color:var(--accent2);font-size:12px;">${escH(qcDisp)}</div></div>
+    </div>
+    <div class="divider"></div>
+    <div class="m-label">Video Info</div>
+    ${mRow('Video ID',v.video_id,true)}${mRow('Enterprise',v.enterprise)}${mRow('Ent. ID',v.enterprise_id)}
+    <div class="divider"></div>
+    <div class="m-label">QC Info</div>
+    ${mRow('QC User',v.qc_user)}${mRow('QC Status',qcDisp)}${v.qa_reviewer?mRow('QA Reviewer',v.qa_reviewer):''}
+    <div class="divider"></div>
+    <div class="m-label">Asset Info</div>
+    ${mRow('VIN',v.vin||'—')}${mRow('SKU',v.sku||'—',true)}
+    <div class="divider"></div>
+    <div class="m-label">Timestamps</div>
+    ${mRow('Created',v.created)}${mRow('Updated',v.updated)}`;
+
+  /* ── Issue #2: show / hide the Re-QA button based on whether this video
+     has already been QA'd. Only relevant when the user is viewing an
+     already-decided record (the typical entry path is from Summary). ── */
+  const reqaBtn = document.getElementById('btnReQA');
+  if (reqaBtn) {
+    reqaBtn.classList.toggle('visible', isQAApproved || isQARejected);
+  }
+}
+const mRow=(k,v,m=false)=>`<div class="m-row"><div class="m-key">${k}</div><div class="m-val${m?' mono':''}">${escH(v||'—')}</div></div>`;
+
+// ─────────────────────────────────────────────
+//  NAVIGATION
+// ─────────────────────────────────────────────
+function goPrev() { if(currentIdx>0)                  loadVideoAt(currentIdx-1); }
+function goNext() { if(currentIdx<filtered.length-1)  loadVideoAt(currentIdx+1); }
+
+// ─────────────────────────────────────────────
+//  ACTION
+// ─────────────────────────────────────────────
+function toggleAction(type) {
+  if (currentAction === type) { clearAction(); return; }
+  currentAction = type;
+  document.getElementById('btnApprove').classList.toggle('sel', type==='Approved');
+  document.getElementById('btnReject').classList.toggle('sel',  type==='Rejected');
+  document.getElementById('reasons').style.display = type==='Rejected'?'flex':'none';
+  document.getElementById('btnSubmit').disabled = false;
+  document.getElementById('btnClearSel').classList.add('show');
+}
+function clearAction() {
+  currentAction=null;
+  document.getElementById('btnApprove').classList.remove('sel');
+  document.getElementById('btnReject').classList.remove('sel');
+  document.getElementById('reasons').style.display='none';
+  document.getElementById('btnSubmit').disabled=true;
+  document.getElementById('btnClearSel').classList.remove('show');
+  document.querySelectorAll('.reason').forEach(b=>b.classList.remove('active'));
+}
+function clearActionUI() {
+  clearAction();
+  document.getElementById('comment').value='';
+}
+function toggleReason(btn, r) {
+  const ta=document.getElementById('comment');
+  if(btn.classList.contains('active')){
+    btn.classList.remove('active');
+    ta.value=ta.value.split(',').map(s=>s.trim()).filter(s=>s!==r).join(', ');
+  } else {
+    btn.classList.add('active');
+    ta.value=ta.value?ta.value.trim()+', '+r:r;
+  }
+}
+
+// ─────────────────────────────────────────────
+//  SUBMIT
+// ─────────────────────────────────────────────
+async function submitReview() {
+  if (currentIdx<0||!currentAction) return;
+  const v=filtered[currentIdx];
+  const comment=document.getElementById('comment').value.trim();
+  if (currentAction==='Rejected'&&!comment){
+    toast('Add a rejection reason','error');
+    document.getElementById('comment').focus(); return;
+  }
+  const payload={
+    video_id:v.video_id,
+    action:currentAction,
+    comment,
+    reviewer:reviewer.email,
+    reviewer_name:reviewer.name,
+    timestamp:new Date().toISOString()
+  };
+
+  localReviews[v.video_id]=payload;
+  lsSet('qa_local_reviews',localReviews);
+  /* Issue #9: clear blacklist entry — fresh decision overrides the reset */
+  if (reqaBlacklist.has(v.video_id)) {
+    reqaBlacklist.delete(v.video_id);
+    lsSet('qa_reqa_blacklist', [...reqaBlacklist]);
+  }
+
+  updateListItemBadge(currentIdx, currentAction, true);
+  updateStats(); updateBatchPill();
+  renderMeta(v);
+  toast(`${currentAction} saved ✓`,'success');
+
+  postToSheet(payload).then(ok=>{
+    if (!ok) {
+      if (!submitQueue.some(q=>q.video_id===v.video_id)) {
+        submitQueue.push(payload); lsSet('qa_submit_queue',submitQueue);
+      }
+      updateQueueBadge();
+    } else {
+      submitQueue=submitQueue.filter(q=>q.video_id!==v.video_id);
+      lsSet('qa_submit_queue',submitQueue);
+      updateQueueBadge();
+    }
+  });
+
+  const next=findNextPending(currentIdx);
+  if (next!==-1) loadVideoAt(next);
+  else if (currentIdx<filtered.length-1) goNext();
+}
+
+function startReQA() {
+  if (currentIdx < 0 || currentIdx >= filtered.length) return;
+  const v = filtered[currentIdx];
+  if (!v) return;
+  const had = !!(v.qa_status && v.qa_status.trim());
+  if (!had) {
+    toast('This video has not been QA\'d yet — nothing to reset', 'warn');
+    return;
+  }
+  if (!confirm('Reset the QA decision for this video?\n\n' +
+               'It will move back to the pendency list. Submitting a new\n' +
+               'review will overwrite the previous decision in the sheet.')) {
+    return;
+  }
+  /* Issue #9: persist a blacklist entry so this video stays out of QA'd
+     and Summary even after the next polling refresh brings the old
+     qa_status back. */
+  reqaBlacklist.add(v.video_id);
+  lsSet('qa_reqa_blacklist', [...reqaBlacklist]);
+  /* Wipe local + queued state for this video so the action bar starts clean */
+  delete localReviews[v.video_id];
+  lsSet('qa_local_reviews', localReviews);
+  submitQueue = submitQueue.filter(q => q.video_id !== v.video_id);
+  lsSet('qa_submit_queue', submitQueue);
+  /* Optimistically clear the QA fields locally */
+  v.qa_status = ''; v.qa_reason = ''; v.qa_reviewer = '';
+  v.qa_timestamp = ''; v.qa_state = '';
+  const all = allVideos.find(a => a.video_id === v.video_id);
+  if (all) {
+    all.qa_status = ''; all.qa_reason = ''; all.qa_reviewer = '';
+    all.qa_timestamp = ''; all.qa_state = '';
+  }
+  /* Best-effort server reset (Apps Script may or may not honor empty action;
+     blacklist is the durable client-side guarantee). */
+  postToSheet({
+    action: 'submit',
+    video_id: v.video_id,
+    qa_action: '__RESET__',
+    comment: '',
+    reviewer: reviewer.email,
+    reviewer_name: reviewer.name || '',
+    timestamp: new Date().toISOString(),
+  });
+  /* Switch back to pendency view */
+  document.getElementById('togQAed').checked = false;
+  const _r = document.getElementById('videoQAContainer');
+  if (_r) _r.classList.remove('qad-jump');
+  /* Reset action UI and reapply filter */
+  currentAction = null;
+  clearActionUI();
+  applyFilter();
+  const i = filtered.findIndex(vv => vv.video_id === v.video_id);
+  if (i >= 0) loadVideoAt(i);
+  toast('QA reset — mark the issues and submit to overwrite', 'info');
+  updateStats();
+}
+
+function findNextPending(from) {
+  for(let i=from+1;i<filtered.length;i++) if(!isQAed(filtered[i])) return i;
+  return -1;
+}
+
+async function postToSheet(payload) {
+  try {
+    await fetch(GAS_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)});
+    return true;
+  } catch(e) { return false; }
+}
+
+// Like postToSheet but reads the JSON response (used when we need to know
+// whether the server actually accepted the request — e.g. for atomic claim).
+// Apps Script web apps with "Anyone" access return CORS-permissive responses.
+// We send Content-Type: text/plain so the request is "simple" (no preflight).
+async function postToSheetReadable(payload) {
+  const res = await fetch(GAS_URL, {
+    method: 'POST',
+    mode: 'cors',
+    redirect: 'follow',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch (e) { throw new Error('Invalid JSON response: ' + text.slice(0, 200)); }
+}
+
+async function flushQueue() {
+  if(!submitQueue.length) return;
+  toast(`Syncing ${submitQueue.length} items…`,'info');
+  const rem=[];
+  for(const item of submitQueue){const ok=await postToSheet(item);if(!ok)rem.push(item);}
+  submitQueue=rem; lsSet('qa_submit_queue',submitQueue); updateQueueBadge();
+  toast(rem.length?`${rem.length} items still pending`:'All synced ✓', rem.length?'warn':'success');
+}
+
+function updateQueueBadge() {
+  const b=document.getElementById('queueBadge'),n=submitQueue.length;
+  b.textContent=n?`⏳ ${n} pending`:'✓ Synced';
+  b.className='queue-badge'+(n?'':' synced');
+}
+function updateListItemBadge(idx,action,isLocal) {
+  const el=document.getElementById(`vi-${idx}`); if(!el) return;
+  const b=badge(action,isLocal,false);
+  const be=el.querySelector('.vbadge');
+  if(be){be.className=`vbadge ${b.c}`;be.textContent=b.l;}
+}
+
+// ─────────────────────────────────────────────
+//  STATS
+// ─────────────────────────────────────────────
+function updateStats() {
+  const total   = videos.length;
+  const pending = videos.filter(v=>!isQAed(v) && !isLockedByOther(v)).length;
+  // Count approvals/rejections by combining local cache + server qa_status
+  // for videos in this session's pool. This is stable across the moment when
+  // the local cache is pruned after server confirmation.
+  const myEmail = (reviewer.email || "").toLowerCase();
+  let approved = 0, rejected = 0;
+  videos.forEach(v => {
+    const lr = localReviews[v.video_id];
+    if (lr && (lr.reviewer || "").toLowerCase() === myEmail) {
+      if (lr.action === 'Approved') approved++;
+      else if (lr.action === 'Rejected') rejected++;
+      return;
+    }
+    // No local cache — fall back to server qa_status, but only if we're the reviewer
+    if (v.qa_status && (v.qa_reviewer || "").toLowerCase() === myEmail) {
+      const a = v.qa_status.toLowerCase();
+      if (a === 'approved' || a === 'verified') approved++;
+      else if (a === 'rejected') rejected++;
+    }
+  });
+  document.getElementById('statsRow').innerHTML=`
+    <span style="font-size:10px;font-family:var(--mono);padding:2px 8px;border-radius:11px;background:rgba(255,255,255,.06);color:var(--text2);">${total} total</span>
+    <span style="font-size:10px;font-family:var(--mono);padding:2px 8px;border-radius:11px;background:rgba(59,130,246,.1);color:var(--accent2);">${pending} pending</span>
+    <span style="font-size:10px;font-family:var(--mono);padding:2px 8px;border-radius:11px;background:rgba(34,197,94,.1);color:var(--green);">${approved} ✓</span>
+    <span style="font-size:10px;font-family:var(--mono);padding:2px 8px;border-radius:11px;background:rgba(239,68,68,.1);color:var(--red);">${rejected} ✗</span>`;
+}
+
+// ─────────────────────────────────────────────
+//  PAGE NAV
+// ─────────────────────────────────────────────
+function gotoReview() {
+  /* Issue #4: reset to pendency view when entering Review via sidebar nav. */
+  document.getElementById('togQAed').checked = false;
+  const _r = document.getElementById('videoQAContainer');
+  if (_r) _r.classList.remove('qad-jump');
+  applyFilter();
+  showPage('review');
+}
+
+function showPage(page) {
+  /* Round 9: hide entScreen so non-home page content is visible. Do NOT
+     touch .in-review — the user clicking Summary while pre-session must
+     keep Home + Review buttons hidden. */
+  document.getElementById('entScreen').classList.add('hidden');
+  currentPage=page;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('[id^="snav-"]').forEach(t=>t.classList.remove('active'));
+  document.getElementById(`page-${page}`).classList.add('active');
+  if(document.getElementById(`snav-${page}`)) document.getElementById(`snav-${page}`).classList.add('active');
+  // Hide the filter/video-list sidebar on Summary so it takes the whole content area
+  const fs = document.getElementById('filterSidebar');
+  if (fs) fs.style.display = (page === 'summary') ? 'none' : '';
+  if(page==='summary'){renderSummary();populateSumFilters();}
+}
+
+// ─────────────────────────────────────────────
+//  SUMMARY
+// ─────────────────────────────────────────────
+function populateSumFilters() {
+  const ents=[...new Set(allVideos.map(v=>v.enterprise).filter(Boolean))].sort();
+  // Build reviewer set from BOTH local cache and server-confirmed qa_reviewer field
+  const seen = new Set();
+  Object.values(localReviews).forEach(r => { if (r.reviewer) seen.add(r.reviewer); });
+  allVideos.forEach(v => { if (v.qa_reviewer) seen.add(v.qa_reviewer); });
+  let revs = [...seen].sort();
+  if (!isAdmin()) revs = revs.filter(r => r.toLowerCase() === (reviewer.email || "").toLowerCase());
+  document.getElementById('sumEnt').innerHTML='<option value="">All Enterprises</option>'+ents.map(e=>`<option value="${escAttr(e)}">${escH(e)}</option>`).join('');
+  document.getElementById('sumRev').innerHTML='<option value="">All Reviewers</option>'  +revs.map(r=>`<option value="${escAttr(r)}">${escH(r)}</option>`).join('');
+}
+
+// Build the unified summary row list by merging localReviews with server qa_status.
+// A row appears once whether it lives only in local cache, only on the server, or both.
+function buildAllReviews() {
+  const byId = new Map();
+  // Start with local cache (these have the most accurate timestamp & comment)
+  Object.values(localReviews).forEach(r => {
+    byId.set(r.video_id, {
+      video_id: r.video_id,
+      action: r.action,
+      comment: r.comment || '',
+      reviewer: r.reviewer || '',
+      reviewer_name: r.reviewer_name || '',
+      timestamp: r.timestamp || '',
+      _source: 'local',
+    });
+  });
+  // Layer on server data — only add if not already present (local wins)
+  allVideos.forEach(v => {
+    if (!v.qa_status || !v.qa_status.trim()) return;
+    if (byId.has(v.video_id)) return;
+    /* Issue #9: skip Re-QA'd videos */
+    if (reqaBlacklist.has(v.video_id)) return;
+    const a = v.qa_status.toLowerCase();
+    let action = v.qa_status;
+    if (a === 'approved' || a === 'verified') action = 'Approved';
+    else if (a === 'rejected') action = 'Rejected';
+    byId.set(v.video_id, {
+      video_id: v.video_id,
+      action,
+      comment: v.qa_reason || '',
+      reviewer: v.qa_reviewer || '',
+      reviewer_name: '',
+      timestamp: v.qa_timestamp || '',
+      _source: 'server',
+    });
+  });
+  return [...byId.values()];
+}
+
+function getSumData() {
+  const ent=document.getElementById('sumEnt').value;
+  const rev=document.getElementById('sumRev').value;
+  const act=document.getElementById('sumAct').value;
+  const fr =document.getElementById('sumFrom').value;
+  const to =document.getElementById('sumTo').value;
+  let pool = buildAllReviews();
+  // Non-admin sees only their own reviews
+  if (!isAdmin()) pool = pool.filter(r=>(r.reviewer||"").toLowerCase()===(reviewer.email||"").toLowerCase());
+  return pool.filter(lr=>{
+    const v=allVideos.find(v=>v.video_id===lr.video_id)||{};
+    if(ent&&v.enterprise!==ent)  return false;
+    if(rev&&lr.reviewer !==rev)  return false;
+    if(act&&lr.action   !==act)  return false;
+    if(fr&&lr.timestamp){const d=new Date(lr.timestamp);if(d<new Date(fr))return false;}
+    if(to&&lr.timestamp){const d=new Date(lr.timestamp);if(d>new Date(to+'T23:59:59'))return false;}
+    return true;
+  });
+}
+function renderSummary() {
+  const rows=getSumData();
+  const app=rows.filter(r=>r.action==='Approved').length;
+  const rej=rows.filter(r=>r.action==='Rejected').length;
+  const rate=rows.length?Math.round(app/rows.length*100):0;
+  document.getElementById('kpiGrid').innerHTML=`
+    <div class="kpi"><div class="klbl">Total QA'd</div><div class="kval" style="color:var(--accent2)">${rows.length}</div><div class="ksub">${isAdmin()?'All reviewers':'Your reviews'}</div></div>
+    <div class="kpi"><div class="klbl">Approved</div><div class="kval" style="color:var(--green)">${app}</div><div class="ksub">${rate}% rate</div></div>
+    <div class="kpi"><div class="klbl">Rejected</div><div class="kval" style="color:var(--red)">${rej}</div><div class="ksub">${rows.length?Math.round(rej/rows.length*100):0}% rate</div></div>
+    <div class="kpi"><div class="klbl">Queue</div><div class="kval" style="color:var(--yellow)">${submitQueue.length}</div><div class="ksub">Pending sync</div></div>`;
+  document.getElementById('sumCount').textContent=`${rows.length} records`;
+  if(!rows.length){document.getElementById('sumTbody').innerHTML='<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--text3);">No QA reviews found</td></tr>';return;}
+  document.getElementById('sumTbody').innerHTML=rows
+    .sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp))
+    .map(lr=>{
+      const v=allVideos.find(v=>v.video_id===lr.video_id)||{};
+      const b=lr.action==='Approved'
+        ?`<span class="vbadge b-verified" style="display:inline-block">✓ Approved</span>`
+        :`<span class="vbadge b-rejected" style="display:inline-block">✗ Rejected</span>`;
+      const ts=lr.timestamp?new Date(lr.timestamp).toLocaleString():'—';
+      const q=submitQueue.some(q=>q.video_id===lr.video_id)?`<span style="font-size:10px;color:var(--yellow)">⏳</span>`:'';
+      const qcReason = (v.reason || '').trim();
+      const qaComment = (lr.comment || '').trim();
+      const detailParts = [];
+      if (qcReason)  detailParts.push(`<div class="qc-line"><span class="lbl">QC:</span>${escH(qcReason)}</div>`);
+      if (qaComment) detailParts.push(`<div class="qa-line"><span class="lbl">QA:</span>${escH(qaComment)}</div>`);
+      const detail = detailParts.length
+        ? `<div class="sum-detail">${detailParts.join('')}</div>`
+        : '<span style="color:var(--text3);">—</span>';
+      return `<tr>
+        <td class="mono">${escH(lr.video_id)}${q}</td>
+        <td>${escH(v.enterprise||'—')}</td>
+        <td class="mono">${escH(v.vin||'—')}</td>
+        <td>${b}</td>
+        <td>${escH(lr.reviewer||'—')}</td>
+        <td>${detail}</td>
+        <td style="white-space:nowrap;">${ts}</td>
+        <td><button class="jmp" onclick="vqa.jumpTo('${escAttr(lr.video_id)}')">↗ Review</button></td>
+      </tr>`;
+    }).join('');
+}
+
+function jumpTo(vid) {
+  document.getElementById('togQAed').checked = true;
+  /* Issue #1: hide the side panel of pendency when reviewing a QA'd video
+     that was opened from the Summary page. The .qad-jump class on .vqa-root
+     drives a CSS rule that hides .filter-sidebar. */
+  const _r = document.getElementById('videoQAContainer');
+  if (_r) _r.classList.add('qad-jump');
+  showPage('review');
+  applyFilter();
+  let i = filtered.findIndex(v => v.video_id === vid);
+  if (i >= 0) { loadVideoAt(i); return; }
+
+  const targetVid = allVideos.find(v => v.video_id === vid);
+  if (targetVid) {
+    if (!videos.find(v => v.video_id === vid)) {
+      const ent = targetVid.enterprise;
+      videos = ent ? allVideos.filter(v => v.enterprise === ent) : allVideos;
+      populateSidebarFilters();
+    }
+    applyFilter();
+    i = filtered.findIndex(v => v.video_id === vid);
+    if (i >= 0) { loadVideoAt(i); return; }
+  }
+
+  document.getElementById('fVid').value = vid;
+  applyFilter();
+  i = filtered.findIndex(v => v.video_id === vid);
+  if (i >= 0) loadVideoAt(i);
+  else toast('Video not found in current batch — load its enterprise first', 'warn');
+}
+
+function exportCSV() {
+  const rows=getSumData();
+  if(!rows.length){toast('No data to export','warn');return;}
+  const lines=['video_id,enterprise,vin,action,reviewer,comment,timestamp'].concat(rows.map(lr=>{
+    const v=allVideos.find(v=>v.video_id===lr.video_id)||{};
+    return [lr.video_id,v.enterprise||'',v.vin||'',lr.action,lr.reviewer||'',(lr.comment||'').replace(/,/g,' '),lr.timestamp||''].map(x=>`"${x}"`).join(',');
+  }));
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/csv'}));
+  a.download=`qa-${new Date().toISOString().slice(0,10)}.csv`;a.click();
+  toast('CSV exported ✓','success');
+}
+
+// ─────────────────────────────────────────────
+//  SETTINGS — admin only (nitin.kumar@spyne.ai)
+// ─────────────────────────────────────────────
+function showSettings() {
+  if (!isAdmin()) { toast('Admin access required','error'); return; }
+  document.getElementById('settingsOverlay').classList.add('open');
+  loadCfgInputs();
+}
+function closeSettingsPanel()  { document.getElementById('settingsOverlay').classList.remove('open'); }
+function closeSettings(e)      { if(e.target===document.getElementById('settingsOverlay')) closeSettingsPanel(); }
+
+function loadCfgInputs() {
+  const els = ['cfgSheet','cfgGas','mapQcStatus','mapQcUser'];
+  if (!els.every(id=>document.getElementById(id))) return;
+  document.getElementById('cfgSheet').value    = SHEET_URL;
+  document.getElementById('cfgGas').value      = GAS_URL;
+  document.getElementById('mapQcStatus').value = colMap.qcStatus||'';
+  document.getElementById('mapQcUser').value   = colMap.qcUser  ||'';
+}
+function saveCfg() {
+  SHEET_URL=document.getElementById('cfgSheet').value.trim();
+  GAS_URL  =document.getElementById('cfgGas').value.trim();
+  lsSet('qa_sheet_url',SHEET_URL); lsSet('qa_gas_url_v2',GAS_URL);
+  // Clear any old key so it doesn't shadow the new one
+  localStorage.removeItem('qa_gas_url');
+  toast('Config saved ✓','success');
+}
+function saveColMap() {
+  colMap.qcStatus=document.getElementById('mapQcStatus').value.trim();
+  colMap.qcUser  =document.getElementById('mapQcUser').value.trim();
+  lsSet('qa_column_map',colMap);
+  toast('Column mapping saved — reload data to apply','success');
+}
+function buildFontGrid() {
+  const cur=ls('qa_font')||'geist';
+  document.getElementById('fontGrid').innerHTML=FONTS.map(f=>
+    `<div class="font-card${f.k===cur?' active':''}" onclick="vqa.pickFont('${f.k}')">
+      <div class="fn">${escH(f.lbl)}</div>
+      <div class="fp" style="font-family:${f.fam}">${f.prev}</div>
+    </div>`
+  ).join('');
+}
+function pickFont(k) { applyFont(k); lsSet('qa_font',k); buildFontGrid(); toast('Font updated ✓','success'); }
+function applyFont(k) {
+  const f=FONTS.find(f=>f.k===k);
+  if (!f) return;
+  /* Issue #6: vars are scoped to .vqa-root, not :root */
+  const root = document.getElementById('videoQAContainer');
+  if (root) {
+    root.style.setProperty('--font-body', f.fam);
+    root.style.setProperty('--sans',      f.fam);
+  }
+}
+function addCF() {
+  const n=document.getElementById('cfName').value.trim();
+  const f=document.getElementById('cfField').value;
+  const v=document.getElementById('cfVal').value.trim();
+  if(!n||!v){toast('Enter name and value','error');return;}
+  customFilters.push({name:n,field:f,value:v});
+  lsSet('qa_custom_filters',customFilters);
+  document.getElementById('cfName').value=''; document.getElementById('cfVal').value='';
+  renderCFList(); renderChips(); toast('Filter saved ✓','success');
+}
+function renderCFList() {
+  const el=document.getElementById('cfList');
+  if(!el)return;
+  if(!customFilters.length){el.innerHTML='<div style="font-size:11px;color:var(--text3);">No custom filters yet.</div>';return;}
+  el.innerHTML=customFilters.map((f,i)=>
+    `<div class="saved-item">
+      <div class="si-desc"><strong>${escH(f.name)}</strong> <span style="color:var(--text3);font-size:11px;">${escH(f.field)} = "${escH(f.value)}"</span></div>
+      <button class="btn-del" onclick="vqa.delCF(${i})">✕</button>
+    </div>`
+  ).join('');
+}
+function delCF(i) { customFilters.splice(i,1); lsSet('qa_custom_filters',customFilters); renderCFList(); renderChips(); }
+function renderEmailMapUI() {
+  const el=document.getElementById('emailMapList');
+  if(!el)return;
+  const e=Object.entries(emailMap);
+  if(!e.length){el.innerHTML='<div style="font-size:11px;color:var(--text3);">No mappings yet.</div>';return;}
+  el.innerHTML=e.map(([em,nm])=>
+    `<div class="saved-item">
+      <div class="si-desc"><span style="font-family:var(--mono);font-size:11px;">${escH(em)}</span> → <strong>${escH(nm)}</strong></div>
+      <button class="btn-del" onclick="vqa.delEmail('${escAttr(em)}')">✕</button>
+    </div>`
+  ).join('');
+}
+function addEmailMap() {
+  const e=document.getElementById('newEmail').value.trim().toLowerCase();
+  const n=document.getElementById('newName').value.trim();
+  if(!e||!n){toast('Enter email and name','error');return;}
+  emailMap[e]=n; lsSet('qa_email_name_map',emailMap);
+  document.getElementById('newEmail').value=''; document.getElementById('newName').value='';
+  renderEmailMapUI(); toast('Mapping saved ✓','success');
+}
+function delEmail(e) { delete emailMap[e]; lsSet('qa_email_name_map',emailMap); renderEmailMapUI(); }
+
+// ─────────────────────────────────────────────
+//  RE-APPEND MODAL
+// ─────────────────────────────────────────────
+function openReappend()  { document.getElementById('reappendId').value=''; document.getElementById('reappendResult').style.display='none'; document.getElementById('reappendModal').classList.add('open'); }
+function closeReappend() { document.getElementById('reappendModal').classList.remove('open'); }
+async function doReappend() {
+  const id=document.getElementById('reappendId').value.trim();
+  const res=document.getElementById('reappendResult');
+  res.style.display='block'; res.textContent='Processing…';
+  const targets=id?[localReviews[id]].filter(Boolean):Object.values(localReviews);
+  if(!targets.length){res.textContent='✗ No cached reviews found.';return;}
+  let ok=0,fail=0;const lines=[];
+  for(const p of targets){const r=await postToSheet(p);if(r){ok++;lines.push(`✓ ${p.video_id}`);}else{fail++;lines.push(`✗ ${p.video_id}`);}}
+  res.textContent=`Done: ${ok} OK, ${fail} failed.\n\n${lines.join('\n')}`;
+  toast(`Re-append: ${ok} OK, ${fail} failed`,ok>0?'success':'error');
+}
+function clearCache() {
+  if(!confirm('Delete all locally cached QA reviews?')) return;
+  localReviews={}; localStorage.removeItem('qa_local_reviews');
+  renderList(); updateStats(); updateBatchPill();
+  toast('Cache cleared','info');
+}
+
+// ─────────────────────────────────────────────
+//  THEME
+// ─────────────────────────────────────────────
+function toggleTheme() {
+  const _r = document.getElementById('videoQAContainer');
+  if (!_r) return;
+  _r.classList.toggle('light');
+  const isLight = _r.classList.contains('light');
+  lsSet('theme', isLight ? 'light' : 'dark');
+  const ico = document.getElementById('themeIco');
+  if (ico) ico.textContent = isLight ? '🌙' : '☀';
+}
+
+// ─────────────────────────────────────────────
+//  TOAST
+// ─────────────────────────────────────────────
+let tt;
+function toast(msg,type='info') {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className=`toast ${type} show`;
+  clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+// ─────────────────────────────────────────────
+//  KEYBOARD
+// ─────────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  const tag=document.activeElement.tagName.toLowerCase();
+  if(tag==='input'||tag==='textarea'||tag==='select') return;
+  if(currentPage!=='review') return;
+  if(e.key.toLowerCase()==='a') toggleAction('Approved');
+  if(e.key.toLowerCase()==='r') toggleAction('Rejected');
+  if(e.key==='Escape')          clearAction();
+  if(e.key==='Enter')           submitReview();
+  if(e.key==='ArrowLeft' ||e.key==='ArrowUp')   goPrev();
+  if(e.key==='ArrowRight'||e.key==='ArrowDown')  goNext();
+});
+
+// Auto-release claims on tab close (best effort)
+window.addEventListener('beforeunload', () => {
+  const unfinished = [...claimedIds].filter(id => !localReviews[id]);
+  if (unfinished.length > 0 && navigator.sendBeacon && reviewer.email) {
+    try {
+      navigator.sendBeacon(GAS_URL, JSON.stringify({
+        action:'release', video_ids:unfinished, reviewer:reviewer.email,
+        timestamp:new Date().toISOString()
+      }));
+    } catch(e) {}
+  }
+});
+
+// When tab becomes visible again, refresh immediately
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && pollTimer) {
+    pollTick();
+  }
+});
+
+  // ─── END ORIGINAL VIDEO QA SCRIPT ───
+
+  // Expose every onclick-referenced handler (and a few helpers) on window.vqa
+  // so the inline onclick="vqa.foo()" attributes can find them.
+  const _exposed = {
+    // login flow (kept for completeness; activate() bypasses login)
+    doLogin, acceptHint, logout,
+    // top-level navigation
+    showEntScreen, showPage, gotoReview, toggleSidebar, toggleTheme, reloadData,
+    // enterprise picker
+    entSync, claimBatch, resetLocalCache, runDiagnostics, renderEntList,
+    // filters
+    applyFilter, clearFilters, setDate, applyCF, removeCF,
+    // review actions
+    goPrev, goNext, toggleAction, clearAction, toggleReason, submitReview,
+    loadVideoAt, jumpTo, flushQueue, startReQA,
+    // summary
+    renderSummary, exportCSV,
+    // settings
+    showSettings, closeSettings, closeSettingsPanel,
+    addCF, delCF, addEmailMap, delEmail,
+    openReappend, closeReappend, doReappend, clearCache,
+    saveCfg, saveColMap, pickFont,
+  };
+  window.vqa = Object.assign(window.vqa || {}, _exposed);
+
+  // Public lifecycle for the host (Spyne QC) to control the Video QA panel.
+  window.VideoQA = {
+    _initialized: false,
+    activate(spyneUser) {
+      const root = document.getElementById('videoQAContainer');
+      if (!root) return;
+      // Auto-fill reviewer from Spyne's logged-in user. PWDS keys look like
+      // "First Last" — derive a stable email "first.last@spyne.ai".
+      if (spyneUser) {
+        const slug = String(spyneUser).trim().toLowerCase().replace(/\s+/g, '.');
+        const fakeEmail = slug + '@spyne.ai';
+        try {
+          localStorage.setItem(
+            'qa_reviewer',
+            JSON.stringify({ name: spyneUser, email: fakeEmail })
+          );
+        } catch (e) {}
+      }
+      root.classList.remove('hidden');
+      if (!this._initialized) {
+        try { init(); } catch (e) { console.error('[VideoQA] init failed:', e); }
+        this._initialized = true;
+      } else {
+        // Already initialized — refresh data AND restart polling on re-entry.
+        try { if (typeof reloadData === 'function') reloadData(); } catch (e) {}
+        try { if (typeof startPolling === 'function') startPolling(); } catch (e) {}
+      }
+    },
+    deactivate() {
+      const root = document.getElementById('videoQAContainer');
+      if (root) root.classList.add('hidden');
+      // Stop polling so background fetches don't run while hidden.
+      try { if (typeof stopPolling === 'function') stopPolling(); } catch (e) {}
+      // Clear any in-flight toast or button spinner so they don't reappear
+      // visually next time the panel is shown.
+      try {
+        const t = document.getElementById('toast');
+        if (t) t.classList.remove('show');
+        document.querySelectorAll('#videoQAContainer .spinning')
+          .forEach(el => el.classList.remove('spinning'));
+      } catch (e) {}
+    },
+  };
+})();
 </script>
 </body>
 </html>
