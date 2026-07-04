@@ -159,15 +159,22 @@ const SPIN_URL_TEMPLATE = 'https://assets.spyne.ai/360?sku_id={SKU}&input=true';
 // Optional: paste a Google Apps Script Web App URL to POST each response there.
 // Leave '' to skip (responses still saved locally + exportable as CSV).
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwy_CR-CCx6qjyhwaZ79GdGERKuBsIkUhgWfqsCOvDuweEPV5Webd-iZM-49Wg8V_L6/exec';
+// Published CSV of the "Responses" tab. Set this so already-QC'd SKUs are hidden
+// for EVERY reviewer (not just this browser). Publish that tab: File -> Share ->
+// Publish to web -> pick the "Responses" sheet -> CSV -> paste the link here.
+// Leave '' to hide reviewed SKUs only within this browser (via local storage).
+const REVIEWED_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSYR8hKwgq90jMiol1rsSIQ93GrE223VTSQjJkTGudd7OXkBIYJ1xTRmGDAb3Vs2dQ9aRV72UVPjUEz/pub?gid=208996956&single=true&output=csv';
 const STORAGE_KEY = 'spin_qc_responses_v1';
 /* =============================================================== */
 
 const STATUS = { EDIT: 'To be edited', OK: 'Correct' };
 
-let items = [];          // [{enterprise, sku, qcUser}]
-let idx = 0;             // current index
+let items = [];          // pending SKUs only: [{enterprise, sku, qcUser}]
+let idx = 0;             // current index within pending queue
 let selected = null;     // STATUS.* selected for current item (not yet submitted)
 let responses = load();  // { sku: {sku,status,enterprise,qcUser,ts} }
+let reviewedSet = new Set(); // all SKUs already QC'd (from Responses tab + local)
+let totalCount = 0;      // total SKUs in the source list
 
 /* ---------- storage (guarded so preview environments don't crash) ---------- */
 function load(){
@@ -215,17 +222,35 @@ function mapColumns(header){
 }
 
 /* ---------- data load ---------- */
+async function fetchCSV(url){
+  const res = await fetch(url, { cache: 'no-store' });
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  return parseCSV(await res.text()).filter(r => r.some(c => c.trim() !== ''));
+}
+
+async function fetchReviewedSkus(){
+  const set = new Set();
+  if(!REVIEWED_CSV_URL) return set;
+  try{
+    const rows = await fetchCSV(REVIEWED_CSV_URL);
+    if(rows.length){
+      const m = mapColumns(rows[0]);
+      const col = m.sku > -1 ? m.sku : 0;   // "sku id" is column A of the Responses tab
+      rows.slice(1).forEach(r => { const s = (r[col] || '').trim(); if(s) set.add(s); });
+    }
+  }catch(e){ /* tab not reachable yet -> fall back to local-only hiding */ }
+  return set;
+}
+
 async function boot(){
   try{
-    const res = await fetch(CSV_URL, { cache: 'no-store' });
-    if(!res.ok) throw new Error('HTTP ' + res.status);
-    const rows = parseCSV(await res.text()).filter(r => r.some(c => c.trim() !== ''));
+    const rows = await fetchCSV(CSV_URL);
     if(!rows.length) throw new Error('empty sheet');
 
     const m = mapColumns(rows[0]);
     if(m.sku === -1) throw new Error('no "sku id" column found in the sheet');
 
-    items = rows.slice(1)
+    const all = rows.slice(1)
       .map(r => ({
         sku: (r[m.sku] || '').trim(),
         enterprise: m.enterprise > -1 ? (r[m.enterprise] || '').trim() : '',
@@ -233,50 +258,64 @@ async function boot(){
       }))
       .filter(x => x.sku);
 
-    if(!items.length) throw new Error('no SKUs found');
+    if(!all.length) throw new Error('no SKUs found');
 
-    idx = firstUnreviewed();
+    // Already-reviewed SKUs: from the Responses tab (all reviewers) + this browser.
+    reviewedSet = await fetchReviewedSkus();
+    Object.keys(responses).forEach(s => reviewedSet.add(s));
+
+    totalCount = all.length;
+    items = all.filter(x => !reviewedSet.has(x.sku));   // queue = pending only
+    idx = 0;
     render();
   }catch(err){
     showError(err.message || String(err));
   }
 }
 
-function firstUnreviewed(){
-  const i = items.findIndex(x => !responses[x.sku]);
-  return i === -1 ? 0 : i;
-}
-
 /* ---------- render ---------- */
 function render(){
+  if(!items.length){ renderDone(); return; }
+  if(idx >= items.length) idx = items.length - 1;
+
   const it = items[idx];
   document.getElementById('mEnt').textContent  = it.enterprise || '—';
   document.getElementById('mSku').textContent  = it.sku;
   document.getElementById('mUser').textContent = it.qcUser || '—';
 
-  const existing = responses[it.sku];
-  selected = existing ? existing.status : null;
+  selected = null;              // fresh pending item
+  document.getElementById('btnEdit').disabled = false;
+  document.getElementById('btnOk').disabled = false;
   syncStatusButtons();
 
   // viewer
   const viewer = document.getElementById('viewer');
   const url = SPIN_URL_TEMPLATE.replace('{SKU}', encodeURIComponent(it.sku));
-  const tag = existing
-    ? `<div class="prevtag ${existing.status === STATUS.OK ? 'ok' : 'edit'}">Reviewed · ${existing.status}</div>`
-    : '';
   viewer.innerHTML =
-    tag +
     `<a class="newtab" href="${url}" target="_blank" rel="noopener">Open in new tab ↗</a>` +
     `<iframe src="${url}" allow="fullscreen" title="Spin ${it.sku}"></iframe>`;
 
-  // progress
-  const done = Object.keys(responses).length;
+  // progress: reviewed grows as pending queue shrinks
+  const done = totalCount - items.length;
   document.getElementById('pDone').textContent  = done;
-  document.getElementById('pTotal').textContent = items.length;
-  document.getElementById('pBar').style.width   = (items.length ? (done / items.length * 100) : 0) + '%';
+  document.getElementById('pTotal').textContent = totalCount;
+  document.getElementById('pBar').style.width   = (totalCount ? (done / totalCount * 100) : 0) + '%';
 
   document.getElementById('btnPrev').disabled = idx === 0;
   document.getElementById('btnNext').disabled = idx >= items.length - 1;
+}
+
+function renderDone(){
+  document.getElementById('mEnt').textContent  = '—';
+  document.getElementById('mSku').textContent  = '—';
+  document.getElementById('mUser').textContent = '—';
+  document.getElementById('viewer').innerHTML =
+    '<div class="center"><h2>All caught up 🎉</h2>' +
+    '<p>Every SKU in the list has been reviewed. New SKUs added to the sheet will show up on reload.</p></div>';
+  document.getElementById('pDone').textContent  = totalCount;
+  document.getElementById('pTotal').textContent = totalCount;
+  document.getElementById('pBar').style.width   = '100%';
+  ['btnPrev','btnNext','btnEdit','btnOk','btnSubmit'].forEach(id => document.getElementById(id).disabled = true);
 }
 
 function syncStatusButtons(){
@@ -289,7 +328,7 @@ function syncStatusButtons(){
 function pick(status){ selected = status; syncStatusButtons(); }
 
 async function submit(){
-  if(!selected) return;
+  if(!selected || !items.length) return;
   const it = items[idx];
   const record = {
     sku: it.sku, status: selected,
@@ -298,18 +337,15 @@ async function submit(){
   };
   responses[it.sku] = record;
   persist();
+  reviewedSet.add(it.sku);
   post(record);
   toast(selected === STATUS.OK ? 'Marked correct' : 'Marked to be edited');
-  advance();
-}
 
-function advance(){
-  const next = items.findIndex((x, i) => i > idx && !responses[x.sku]);
-  if(next !== -1){ idx = next; }
-  else if(idx < items.length - 1){ idx++; }
-  else { render(); toast('All SKUs reviewed 🎉'); return; }
+  items.splice(idx, 1);                        // remove -> not visible again
+  if(idx >= items.length) idx = items.length - 1;
   render();
 }
+
 function prev(){ if(idx > 0){ idx--; render(); } }
 function next(){ if(idx < items.length - 1){ idx++; render(); } }
 
@@ -325,7 +361,7 @@ function post(record){
 
 /* ---------- export ---------- */
 function exportCSV(){
-  const recs = items.map(x => responses[x.sku]).filter(Boolean);
+  const recs = Object.values(responses);
   if(!recs.length){ toast('Nothing to export yet'); return; }
   const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
   const header = ['sku id','status','Enterprise','QC User','timestamp'];
@@ -353,7 +389,7 @@ function showError(msg){
     `<p style="color:var(--faint)">Check that the sheet is published to the web as CSV and the link is correct.</p></div>`;
 }
 function copySku(){
-  const sku = items[idx] && items[idx].sku;
+  const sku = items.length && items[idx] && items[idx].sku;
   if(!sku) return;
   navigator.clipboard && navigator.clipboard.writeText(sku).then(() => toast('SKU copied'), () => {});
 }
