@@ -3459,10 +3459,15 @@ async function claimBatch(enterprise) {
   updateStats();
   updateBatchPill();
 
+  // Always land on the Review page after assigning a batch — regardless of
+  // which page (e.g. Summary) was active before the user went Home to claim.
+  showPage('review');
+
   // Switch screens — but DON'T restore buttons yet. We'll restore them
-  // once the first video has loaded metadata (or after a 6s safety timeout),
-  // so the user sees "Assigning…" persist through the actual loading time
-  // rather than flashing back to "Start QA".
+  // once the first video has actually finished loading (or, failing that,
+  // after a generous safety-timeout), so the user sees "Assigning…" persist
+  // through the real loading time rather than flashing back to "Start QA"
+  // while data/video is still on the way.
   hideScreens();
 
   const restoreOnceVideoReady = () => {
@@ -3476,10 +3481,16 @@ async function claimBatch(enterprise) {
   if (player) {
     const finish = () => restoreOnceVideoReady();
     player.addEventListener('loadedmetadata', finish, { once: true });
+    player.addEventListener('canplay',        finish, { once: true });
     player.addEventListener('error',          finish, { once: true });
+    // Safety net only — real completion above should normally fire well
+    // before this. Generous so slow connections/large batches don't get
+    // their "Assigning…" indicator cut off mid-load.
+    setTimeout(restoreOnceVideoReady, 30000);
+  } else {
+    // Nothing to load (e.g. no videos matched) — nothing to wait for.
+    restoreOnceVideoReady();
   }
-  // Safety: never leave buttons in loading state forever
-  setTimeout(restoreOnceVideoReady, 6000);
 
   const skippedNote = skipped.length ? ` (${skipped.length} were taken by others)` : '';
   toast(`✓ Claimed ${claimed.length} video${claimed.length===1?'':'s'}${enterprise?' from '+enterprise:''}${skippedNote}`,'success');
