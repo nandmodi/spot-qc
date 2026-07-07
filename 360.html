@@ -232,7 +232,7 @@
 <script>
 // Paste your Apps Script /exec URL here to skip the connect screen entirely.
 // Leave "" to be asked once (stored in the browser).
-const DEFAULT_SCRIPT_URL="";
+const DEFAULT_SCRIPT_URL="https://script.google.com/macros/s/AKfycbzZUODxro6Nw2_lKOp3zHLW2DLUrb97XujD-0tx6fJ4ocMNYoXW78O4xXUykQTZAwmt/exec";
 
 // The SKU source. A published-sheet CSV URL (…/pub?gid=…&output=csv).
 // Change this (or use Settings) to point the tool at a different source — no redeploy.
@@ -265,6 +265,11 @@ function openSetup(){$("setupUrl").value=SCRIPT_URL;$("setupCsv").value=SOURCE_C
   $("setup").classList.add("show");$("setupUrl").focus();}
 function closeSetup(){$("setup").classList.remove("show");}
 
+function verdictsFromReviews(reviews){
+  const v={};
+  (reviews||[]).forEach(rev=>{if(rev.better==="1"||rev.better==="2")v[rev.sku_id]=rev.better;});
+  return v;
+}
 async function refresh(){
   setState("pend","loading sheet…"); $("banner").classList.remove("show");
   try{
@@ -272,7 +277,7 @@ async function refresh(){
     const j=await res.json();
     if(!j.ok)throw new Error(j.error||"backend error");
     rows=j.skus||[];
-    (j.reviews||[]).forEach(rev=>{if(rev.better==="1"||rev.better==="2")verdicts[rev.sku_id]=rev.better;});
+    verdicts=verdictsFromReviews(j.reviews);   // Reviews tab is the source of truth
     persist(); setState("ok","loaded "+rows.length+" SKUs");
     rebuild(); if(order.length){cursor=0;render();}
   }catch(e){
@@ -289,11 +294,10 @@ async function sync(){
     const j=await res.json();
     if(!j.ok)return;
     const keepSku=order.length?curRow().sku_id:null;
+    const localPick=keepSku?verdicts[keepSku]:undefined;   // current pick may be unsaved
     rows=j.skus||[];
-    (j.reviews||[]).forEach(rev=>{
-      if(rev.better==="1"||rev.better==="2")verdicts[rev.sku_id]=rev.better;
-      else delete verdicts[rev.sku_id];
-    });
+    verdicts=verdictsFromReviews(j.reviews);                // Reviews tab wins
+    if(keepSku){ if(localPick===undefined) delete verdicts[keepSku]; else verdicts[keepSku]=localPick; }
     persist(); rebuild();
     if(keepSku){const oi=order.findIndex(i=>rows[i].sku_id===keepSku);if(oi>=0)cursor=oi;}
     render(); // loadFrames skips reloading the same spins, so no flicker
