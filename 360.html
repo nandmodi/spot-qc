@@ -73,7 +73,7 @@
 
   .controls{display:flex;align-items:center;justify-content:center;gap:26px;position:relative;
     padding:14px 16px;border-top:1px solid var(--line);background:#0a0f16;flex-wrap:wrap}
-  .better{display:flex;align-items:center;gap:14px}
+  .better{display:flex;align-items:center;gap:12px}
   .better .lbl{font-size:13px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
   .cbx{display:flex;align-items:center;gap:9px;padding:8px 14px;border-radius:10px;
     background:var(--panel2);border:1px solid var(--line);cursor:pointer;user-select:none;transition:.15s}
@@ -145,8 +145,9 @@
 
 <div class="strip">
   <span class="chip">Total <b id="cTotal">0</b></span>
-  <span class="chip t">Option 1 <b id="c1">0</b></span>
-  <span class="chip t">Option 2 <b id="c2">0</b></span>
+  <span class="chip t">Old <b id="cOld">0</b></span>
+  <span class="chip t">New <b id="cNew">0</b></span>
+  <span class="chip t">Both <b id="cBoth">0</b></span>
   <span class="chip g">Reviewed <b id="cDone">0</b></span>
   <span class="chip a">Left <b id="cLeft">0</b></span>
 </div>
@@ -161,28 +162,32 @@
 
   <div class="grid">
     <div class="card" id="card1">
-      <div class="head"><span class="num">1</span><span class="tag">Spin 1 · image_logic</span>
+      <div class="head"><span class="num">1</span><span class="tag">Spin 1 · OLD</span>
         <div class="spacer"></div><a class="open" id="open1" target="_blank" rel="noopener">open ↗</a></div>
       <div class="frame-wrap" id="w1"><div class="ph" id="ph1">loading spin…</div><iframe id="f1"></iframe></div>
     </div>
     <div class="card" id="card2">
-      <div class="head"><span class="num">2</span><span class="tag">Spin 2 · flare</span>
+      <div class="head"><span class="num">2</span><span class="tag">Spin 2 · NEW</span>
         <div class="spacer"></div><a class="open" id="open2" target="_blank" rel="noopener">open ↗</a></div>
       <div class="frame-wrap" id="w2"><div class="ph" id="ph2">loading spin…</div><iframe id="f2"></iframe></div>
     </div>
   </div>
 
   <div class="controls">
-    <div class="hintbar"><span class="kbd">1</span>/<span class="kbd">2</span> pick · <span class="kbd">0</span> clear · <span class="kbd">←</span><span class="kbd">→</span> browse · <span class="kbd">Enter</span> save &amp; next</div>
+    <div class="hintbar"><span class="kbd">1</span> old · <span class="kbd">2</span> new · <span class="kbd">3</span> both · <span class="kbd">0</span> clear · <span class="kbd">←</span><span class="kbd">→</span> browse · <span class="kbd">Enter</span> save &amp; next</div>
     <div class="better">
-      <span class="lbl">Better</span>
-      <div class="cbx" id="cbx1">
+      <span class="lbl">Verdict</span>
+      <div class="cbx" id="cbxOld">
         <span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="#04211d" stroke-width="3.5"><path d="M4 12l5 5L20 6"/></svg></span>
-        <span class="txt">Image_logic</span><span class="sub">spin 1</span>
+        <span class="txt">Old</span><span class="sub">spin 1</span>
       </div>
-      <div class="cbx" id="cbx2">
+      <div class="cbx" id="cbxNew">
         <span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="#04211d" stroke-width="3.5"><path d="M4 12l5 5L20 6"/></svg></span>
-        <span class="txt">Flare</span><span class="sub">spin 2</span>
+        <span class="txt">New</span><span class="sub">spin 2</span>
+      </div>
+      <div class="cbx" id="cbxBoth">
+        <span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="#04211d" stroke-width="3.5"><path d="M4 12l5 5L20 6"/></svg></span>
+        <span class="txt">Both</span><span class="sub">both ok</span>
       </div>
     </div>
     <div class="nav">
@@ -205,8 +210,9 @@
       <option value="unreviewed" selected>Unreviewed only</option>
       <option value="all">All</option>
       <option value="reviewed">Reviewed only</option>
-      <option value="1">Option 1 wins</option>
-      <option value="2">Option 2 wins</option>
+      <option value="old">Old</option>
+      <option value="new">New</option>
+      <option value="both">Both</option>
     </select>
   </div>
   <div class="list" id="list"></div>
@@ -231,21 +237,21 @@
 
 <script>
 // Paste your Apps Script /exec URL here to skip the connect screen entirely.
-// Leave "" to be asked once (stored in the browser).
 const DEFAULT_SCRIPT_URL="https://script.google.com/macros/s/AKfycbzZUODxro6Nw2_lKOp3zHLW2DLUrb97XujD-0tx6fJ4ocMNYoXW78O4xXUykQTZAwmt/exec";
 
-// The SKU source. Leave "" to read the "Data" tab of the sheet the Apps Script is
-// bound to (auto-detected by columns — gid-proof, always current). Or set a published
-// CSV URL (…/pub?gid=…&output=csv) here / in Settings to read a different sheet.
+// SKU source. "" = read the source tab of the bound sheet (auto-detected). Or a published CSV URL.
 const DEFAULT_SOURCE_CSV="";
 
-// Auto-refresh the sheet every N milliseconds (0 = off). 60000 = every minute.
+// Auto-refresh the sheet every N ms (0 = off).
 const AUTO_REFRESH_MS=60000;
 
 const LS="qc360_pages_v1";
+const VALS=["old","new","both"];
 let SCRIPT_URL="", SOURCE_CSV="", reviewer="";
 let rows=[], verdicts={}, order=[], cursor=0;
 const $=id=>document.getElementById(id);
+const isRev=v=>v==="old"||v==="new"||v==="both";
+const winLetter=v=>v?v[0].toUpperCase():"";
 
 function loadCfg(){try{const c=JSON.parse(localStorage.getItem(LS)||"{}");
   SCRIPT_URL=c.scriptUrl||DEFAULT_SCRIPT_URL||"";
@@ -267,7 +273,7 @@ function closeSetup(){$("setup").classList.remove("show");}
 
 function verdictsFromReviews(reviews){
   const v={};
-  (reviews||[]).forEach(rev=>{if(rev.better==="1"||rev.better==="2")v[rev.sku_id]=rev.better;});
+  (reviews||[]).forEach(rev=>{const b=(rev.better||"").toString().trim().toLowerCase();if(isRev(b))v[rev.sku_id]=b;});
   return v;
 }
 async function refresh(){
@@ -285,8 +291,6 @@ async function refresh(){
     banner("Couldn't reach the Apps Script: "+e.message+". Check the URL in Settings and that it's deployed for \"Anyone\".");
   }
 }
-
-// Quiet background sync: keeps the current SKU + your latest pick, merges remote changes.
 async function sync(){
   if(!SCRIPT_URL||document.hidden)return;
   try{
@@ -294,13 +298,13 @@ async function sync(){
     const j=await res.json();
     if(!j.ok)return;
     const keepSku=order.length?curRow().sku_id:null;
-    const localPick=keepSku?verdicts[keepSku]:undefined;   // current pick may be unsaved
+    const localPick=keepSku?verdicts[keepSku]:undefined;
     rows=j.skus||[];
-    verdicts=verdictsFromReviews(j.reviews);                // Reviews tab wins
+    verdicts=verdictsFromReviews(j.reviews);
     if(keepSku){ if(localPick===undefined) delete verdicts[keepSku]; else verdicts[keepSku]=localPick; }
     persist(); rebuild();
     if(keepSku){const oi=order.findIndex(i=>rows[i].sku_id===keepSku);if(oi>=0)cursor=oi;}
-    render(); // loadFrames skips reloading the same spins, so no flicker
+    render();
   }catch(e){}
 }
 
@@ -309,9 +313,9 @@ function rebuild(){
   order=rows.map((_,i)=>i).filter(i=>{
     const r=rows[i],v=verdicts[r.sku_id];
     if(q&&!r.sku_id.toLowerCase().includes(q))return false;
-    if(f==="reviewed")return v==="1"||v==="2";
-    if(f==="unreviewed")return !(v==="1"||v==="2");
-    if(f==="1")return v==="1"; if(f==="2")return v==="2";
+    if(f==="reviewed")return isRev(v);
+    if(f==="unreviewed")return !isRev(v);
+    if(f==="old")return v==="old"; if(f==="new")return v==="new"; if(f==="both")return v==="both";
     return true;
   });
   if(cursor>=order.length)cursor=Math.max(0,order.length-1);
@@ -321,18 +325,18 @@ function renderList(){
   const el=$("list");el.innerHTML="";const frag=document.createDocumentFragment();
   order.forEach((ri,oi)=>{const r=rows[ri],v=verdicts[r.sku_id];
     const d=document.createElement("div");
-    d.className="item"+((v==="1"||v==="2")?" done":"")+(oi===cursor?" active":"");
-    d.innerHTML='<span class="dot"></span><span class="sku">'+r.sku_id+'</span><span class="win">'+(v||"")+'</span>';
+    d.className="item"+(isRev(v)?" done":"")+(oi===cursor?" active":"");
+    d.innerHTML='<span class="dot"></span><span class="sku">'+r.sku_id+'</span><span class="win">'+winLetter(v)+'</span>';
     d.onclick=()=>{cursor=oi;render();closeDrawer();};
     d.onmouseenter=()=>prefetchUrls(r);
     frag.appendChild(d);});
   el.appendChild(frag);
 }
 function renderStats(){
-  const done=rows.filter(r=>{const v=verdicts[r.sku_id];return v==="1"||v==="2";}).length;
+  const cnt=val=>rows.filter(r=>verdicts[r.sku_id]===val).length;
+  const done=rows.filter(r=>isRev(verdicts[r.sku_id])).length;
   $("cTotal").textContent=rows.length;
-  $("c1").textContent=rows.filter(r=>verdicts[r.sku_id]==="1").length;
-  $("c2").textContent=rows.filter(r=>verdicts[r.sku_id]==="2").length;
+  $("cOld").textContent=cnt("old"); $("cNew").textContent=cnt("new"); $("cBoth").textContent=cnt("both");
   $("cDone").textContent=done; $("cLeft").textContent=rows.length-done;
 }
 
@@ -340,12 +344,12 @@ function curRow(){return rows[order[cursor]];}
 function render(){
   if(!order.length){$("skuId").textContent="— (nothing matches filter)";
     $("f1").src="about:blank";$("f2").src="about:blank";$("pos").textContent="0";$("posTotal").textContent="0";
-    $("cbx1").classList.remove("on");$("cbx2").classList.remove("on");
+    ["cbxOld","cbxNew","cbxBoth"].forEach(id=>$(id).classList.remove("on"));
     $("card1").classList.remove("picked");$("card2").classList.remove("picked");return;}
   const r=curRow();
   $("pos").textContent=cursor+1;$("posTotal").textContent=order.length;
   $("skuId").textContent=r.sku_id;
-  $("open1").href=r.image_logic_iframe_url;$("open2").href=r.flare_iframe_url;
+  $("open1").href=r.old_iframe_url;$("open2").href=r.new_iframe_url;
   loadFrames(r); paintVerdict();
   [...$("list").children].forEach((c,i)=>c.classList.toggle("active",i===cursor));
   const act=$("list").children[cursor]; if(act)act.scrollIntoView({block:"nearest"});
@@ -353,45 +357,43 @@ function render(){
 }
 function prefetchUrls(r){
   if(!r)return;
-  if(r.image_logic_iframe_url&&$("pf1").src!==r.image_logic_iframe_url)$("pf1").src=r.image_logic_iframe_url;
-  if(r.flare_iframe_url&&$("pf2").src!==r.flare_iframe_url)$("pf2").src=r.flare_iframe_url;
+  if(r.old_iframe_url&&$("pf1").src!==r.old_iframe_url)$("pf1").src=r.old_iframe_url;
+  if(r.new_iframe_url&&$("pf2").src!==r.new_iframe_url)$("pf2").src=r.new_iframe_url;
 }
-function prefetchNext(){
-  const ni=order[cursor+1]; if(ni==null)return;
-  prefetchUrls(rows[ni]);
-}
-function activatePanel(n){
-  $("w1").classList.toggle("live",n===1);
-  $("w2").classList.toggle("live",n===2);
-}
+function prefetchNext(){const ni=order[cursor+1]; if(ni==null)return; prefetchUrls(rows[ni]);}
+function activatePanel(n){$("w1").classList.toggle("live",n===1);$("w2").classList.toggle("live",n===2);}
 function loadFrames(r){
   const set=(f,ph,url)=>{
-    if(url&&f.src===url){ph.classList.add("hide");return;}   // already loaded — no reload
+    if(url&&f.src===url){ph.classList.add("hide");return;}
     ph.classList.remove("hide");ph.textContent="loading spin…";
     f.onload=()=>ph.classList.add("hide");
     if(url)f.src=url;else{f.src="about:blank";ph.textContent="(no url)";}};
-  set($("f1"),$("ph1"),r.image_logic_iframe_url);
-  set($("f2"),$("ph2"),r.flare_iframe_url);
+  set($("f1"),$("ph1"),r.old_iframe_url);
+  set($("f2"),$("ph2"),r.new_iframe_url);
 }
 function paintVerdict(){
   const v=verdicts[curRow().sku_id]||null;
-  $("cbx1").classList.toggle("on",v==="1"); $("cbx2").classList.toggle("on",v==="2");
-  $("card1").classList.toggle("picked",v==="1"); $("card2").classList.toggle("picked",v==="2");
+  $("cbxOld").classList.toggle("on",v==="old");
+  $("cbxNew").classList.toggle("on",v==="new");
+  $("cbxBoth").classList.toggle("on",v==="both");
+  $("card1").classList.toggle("picked",v==="old"||v==="both");
+  $("card2").classList.toggle("picked",v==="new"||v==="both");
 }
-function setVerdict(n){
+function setVerdict(val){
   const r=curRow(); if(!r)return;
-  const cur=verdicts[r.sku_id]||null; const nv=cur===n?"":n;
+  const cur=verdicts[r.sku_id]||null; const nv=cur===val?"":val;
   if(nv==="")delete verdicts[r.sku_id]; else verdicts[r.sku_id]=nv;
   persist(); paintVerdict(); renderStats();
   const li=$("list").children[cursor];
-  if(li){li.classList.toggle("done",nv==="1"||nv==="2");li.querySelector(".win").textContent=nv;}
+  if(li){li.classList.toggle("done",isRev(nv));li.querySelector(".win").textContent=winLetter(nv);}
 }
+function clearVerdict(){const r=curRow();if(r&&verdicts[r.sku_id])setVerdict(verdicts[r.sku_id]);}
 async function save(r,better){
   reviewer=$("reviewer").value.trim(); persist(); setState("pend","saving…");
   try{
     await fetch(SCRIPT_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},
       body:JSON.stringify({sku_id:r.sku_id,better:better,
-        image_logic_iframe_url:r.image_logic_iframe_url,flare_iframe_url:r.flare_iframe_url,reviewer})});
+        old_iframe_url:r.old_iframe_url,new_iframe_url:r.new_iframe_url,reviewer})});
     setState("ok","saved");
   }catch(e){setState("err","save failed — cached locally");}
 }
@@ -404,9 +406,9 @@ function go(d){if(!order.length)return;cursor=Math.min(order.length-1,Math.max(0
 
 function exportCSV(){
   const esc=s=>{s=String(s??"");return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
-  const out=[["video_id","better","better_label","image_logic_iframe_url","flare_iframe_url","reviewer"].join(",")];
+  const out=[["video_id","verdict","old_iframe_url","new_iframe_url","reviewer"].join(",")];
   rows.forEach(r=>{const b=verdicts[r.sku_id]||"";
-    out.push([r.sku_id,b,b==="1"?"image_logic":b==="2"?"flare":"",r.image_logic_iframe_url,r.flare_iframe_url,reviewer].map(esc).join(","));});
+    out.push([r.sku_id,b,r.old_iframe_url,r.new_iframe_url,reviewer].map(esc).join(","));});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(new Blob([out.join("\n")],{type:"text/csv"}));
   a.download="qc_review_verdicts.csv";a.click();toast("CSV exported");
@@ -428,25 +430,26 @@ $("settingsBtn").onclick=openSetup;
 $("menuBtn").onclick=openDrawer; $("closeDrawer").onclick=closeDrawer; $("scrim").onclick=closeDrawer;
 $("filter").onchange=()=>{cursor=0;rebuild();if(order.length)render();};
 $("search").oninput=()=>{cursor=0;rebuild();if(order.length)render();};
-$("cbx1").onclick=()=>setVerdict("1");
-$("cbx2").onclick=()=>setVerdict("2");
+$("cbxOld").onclick=()=>setVerdict("old");
+$("cbxNew").onclick=()=>setVerdict("new");
+$("cbxBoth").onclick=()=>setVerdict("both");
 $("prevBtn").onclick=()=>go(-1);
 $("saveNextBtn").onclick=saveAndNext;
 $("refreshBtn").onclick=refresh;
 $("exportBtn").onclick=exportCSV;
 $("reloadFrames").onclick=()=>{const r=curRow();if(r)loadFrames(r);};
-$("copySku").onclick=()=>{const r=curRow();if(r){navigator.clipboard.writeText(r.sku_id);toast("sku_id copied");}};
+$("copySku").onclick=()=>{const r=curRow();if(r){navigator.clipboard.writeText(r.sku_id);toast("video_id copied");}};
 $("reviewer").onchange=()=>{reviewer=$("reviewer").value.trim();persist();};
-
 $("w1").addEventListener("mouseenter",()=>activatePanel(1));
 $("w2").addEventListener("mouseenter",()=>activatePanel(2));
 
 document.addEventListener("keydown",e=>{
   if(/input|textarea|select/i.test(e.target.tagName))return;
   if($("setup").classList.contains("show"))return;
-  if(e.key==="1"){setVerdict("1");e.preventDefault();}
-  else if(e.key==="2"){setVerdict("2");e.preventDefault();}
-  else if(e.key==="0"||e.key==="Backspace"){const r=curRow();if(r&&verdicts[r.sku_id])setVerdict(verdicts[r.sku_id]);e.preventDefault();}
+  if(e.key==="1"){setVerdict("old");e.preventDefault();}
+  else if(e.key==="2"){setVerdict("new");e.preventDefault();}
+  else if(e.key==="3"){setVerdict("both");e.preventDefault();}
+  else if(e.key==="0"||e.key==="Backspace"){clearVerdict();e.preventDefault();}
   else if(e.key==="ArrowRight"){go(1);e.preventDefault();}
   else if(e.key==="ArrowLeft"){go(-1);e.preventDefault();}
   else if(e.key==="Enter"){saveAndNext();e.preventDefault();}
