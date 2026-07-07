@@ -218,6 +218,8 @@
     <p>Paste the Apps Script Web app URL (ends with <code>/exec</code>). It reads the SKUs and saves your verdicts to the <b>Reviews</b> tab. See <code>apps-script.gs</code> for the one-time setup.</p>
     <label>Apps Script Web app URL</label>
     <input type="text" id="setupUrl" placeholder="https://script.google.com/macros/s/…/exec">
+    <label>Source CSV URL (published sheet — the SKU list). Leave blank to read the bound sheet.</label>
+    <input type="text" id="setupCsv" placeholder="https://docs.google.com/…/pub?gid=…&single=true&output=csv">
     <label>Reviewer name (optional)</label>
     <input type="text" id="setupReviewer" placeholder="e.g. nand">
     <div style="margin-top:16px"><button class="btn primary" id="setupSave">Connect</button>
@@ -232,17 +234,26 @@
 // Leave "" to be asked once (stored in the browser).
 const DEFAULT_SCRIPT_URL="";
 
+// The SKU source. A published-sheet CSV URL (…/pub?gid=…&output=csv).
+// Change this (or use Settings) to point the tool at a different source — no redeploy.
+// Leave "" to read the sheet the Apps Script is bound to instead.
+const DEFAULT_SOURCE_CSV="https://docs.google.com/spreadsheets/d/e/2PACX-1vTJ9g4mR1lE_1x8Z4THGHu2QwFbUGY1V-x8Pm2HBojo2tWqeWLMRXWya_u9JfCpXum6rcj7twdfS7bD/pub?gid=5914661&single=true&output=csv";
+
 // Auto-refresh the sheet every N milliseconds (0 = off). 60000 = every minute.
 const AUTO_REFRESH_MS=60000;
 
 const LS="qc360_pages_v1";
-let SCRIPT_URL="", reviewer="";
+let SCRIPT_URL="", SOURCE_CSV="", reviewer="";
 let rows=[], verdicts={}, order=[], cursor=0;
 const $=id=>document.getElementById(id);
 
 function loadCfg(){try{const c=JSON.parse(localStorage.getItem(LS)||"{}");
-  SCRIPT_URL=c.scriptUrl||DEFAULT_SCRIPT_URL||"";reviewer=c.reviewer||"";verdicts=c.verdicts||{};}catch(e){SCRIPT_URL=DEFAULT_SCRIPT_URL||"";}}
-function persist(){localStorage.setItem(LS,JSON.stringify({scriptUrl:SCRIPT_URL,reviewer,verdicts}));}
+  SCRIPT_URL=c.scriptUrl||DEFAULT_SCRIPT_URL||"";
+  SOURCE_CSV=(c.sourceCsv!==undefined?c.sourceCsv:DEFAULT_SOURCE_CSV)||"";
+  reviewer=c.reviewer||"";verdicts=c.verdicts||{};}
+  catch(e){SCRIPT_URL=DEFAULT_SCRIPT_URL||"";SOURCE_CSV=DEFAULT_SOURCE_CSV||"";}}
+function persist(){localStorage.setItem(LS,JSON.stringify({scriptUrl:SCRIPT_URL,sourceCsv:SOURCE_CSV,reviewer,verdicts}));}
+function apiUrl(){return SCRIPT_URL+(SOURCE_CSV?"?csv="+encodeURIComponent(SOURCE_CSV):"");}
 
 function boot(){
   loadCfg();
@@ -250,14 +261,14 @@ function boot(){
   if(!SCRIPT_URL){openSetup();return;}
   refresh();
 }
-function openSetup(){$("setupUrl").value=SCRIPT_URL;$("setupReviewer").value=reviewer;
+function openSetup(){$("setupUrl").value=SCRIPT_URL;$("setupCsv").value=SOURCE_CSV;$("setupReviewer").value=reviewer;
   $("setup").classList.add("show");$("setupUrl").focus();}
 function closeSetup(){$("setup").classList.remove("show");}
 
 async function refresh(){
   setState("pend","loading sheet…"); $("banner").classList.remove("show");
   try{
-    const res=await fetch(SCRIPT_URL,{method:"GET"});
+    const res=await fetch(apiUrl(),{method:"GET"});
     const j=await res.json();
     if(!j.ok)throw new Error(j.error||"backend error");
     rows=j.skus||[];
@@ -274,7 +285,7 @@ async function refresh(){
 async function sync(){
   if(!SCRIPT_URL||document.hidden)return;
   try{
-    const res=await fetch(SCRIPT_URL,{method:"GET"});
+    const res=await fetch(apiUrl(),{method:"GET"});
     const j=await res.json();
     if(!j.ok)return;
     const keepSku=order.length?curRow().sku_id:null;
@@ -406,7 +417,7 @@ function closeDrawer(){$("drawer").classList.remove("open");$("scrim").classList
 $("setupSave").onclick=()=>{
   const u=$("setupUrl").value.trim();
   if(!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec/.test(u)){$("setupMsg").textContent="That doesn't look like a /exec Web app URL.";return;}
-  SCRIPT_URL=u; reviewer=$("setupReviewer").value.trim(); $("reviewer").value=reviewer;
+  SCRIPT_URL=u; SOURCE_CSV=$("setupCsv").value.trim(); reviewer=$("setupReviewer").value.trim(); $("reviewer").value=reviewer;
   persist(); closeSetup(); refresh();
 };
 $("settingsBtn").onclick=openSetup;
