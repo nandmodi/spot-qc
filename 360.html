@@ -234,10 +234,10 @@
 // Leave "" to be asked once (stored in the browser).
 const DEFAULT_SCRIPT_URL="https://script.google.com/macros/s/AKfycbzZUODxro6Nw2_lKOp3zHLW2DLUrb97XujD-0tx6fJ4ocMNYoXW78O4xXUykQTZAwmt/exec";
 
-// The SKU source. A published-sheet CSV URL (…/pub?gid=…&output=csv).
-// Change this (or use Settings) to point the tool at a different source — no redeploy.
-// Leave "" to read the sheet the Apps Script is bound to instead.
-const DEFAULT_SOURCE_CSV="https://docs.google.com/spreadsheets/d/e/2PACX-1vTJ9g4mR1lE_1x8Z4THGHu2QwFbUGY1V-x8Pm2HBojo2tWqeWLMRXWya_u9JfCpXum6rcj7twdfS7bD/pub?gid=5914661&single=true&output=csv";
+// The SKU source. Leave "" to read the "Data" tab of the sheet the Apps Script is
+// bound to (auto-detected by columns — gid-proof, always current). Or set a published
+// CSV URL (…/pub?gid=…&output=csv) here / in Settings to read a different sheet.
+const DEFAULT_SOURCE_CSV="";
 
 // Auto-refresh the sheet every N milliseconds (0 = off). 60000 = every minute.
 const AUTO_REFRESH_MS=60000;
