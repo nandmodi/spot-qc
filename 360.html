@@ -252,6 +252,12 @@ let rows=[], verdicts={}, order=[], cursor=0;
 const $=id=>document.getElementById(id);
 const isRev=v=>v==="old"||v==="new"||v==="both";
 const winLetter=v=>v?v[0].toUpperCase():"";
+// Accept either the new (old/new) or legacy (image_logic/flare) column keys.
+function normSku(s){return {
+  sku_id:s.sku_id||s.video_id||"",
+  old_iframe_url:s.old_iframe_url||s.image_logic_iframe_url||"",
+  new_iframe_url:s.new_iframe_url||s.flare_iframe_url||""
+};}
 
 function loadCfg(){try{const c=JSON.parse(localStorage.getItem(LS)||"{}");
   SCRIPT_URL=c.scriptUrl||DEFAULT_SCRIPT_URL||"";
@@ -282,7 +288,7 @@ async function refresh(){
     const res=await fetch(apiUrl(),{method:"GET"});
     const j=await res.json();
     if(!j.ok)throw new Error(j.error||"backend error");
-    rows=j.skus||[];
+    rows=(j.skus||[]).map(normSku);
     verdicts=verdictsFromReviews(j.reviews);   // Reviews tab is the source of truth
     persist(); setState("ok","loaded "+rows.length+" SKUs");
     rebuild(); if(order.length){cursor=0;render();}
@@ -299,7 +305,7 @@ async function sync(){
     if(!j.ok)return;
     const keepSku=order.length?curRow().sku_id:null;
     const localPick=keepSku?verdicts[keepSku]:undefined;
-    rows=j.skus||[];
+    rows=(j.skus||[]).map(normSku);
     verdicts=verdictsFromReviews(j.reviews);
     if(keepSku){ if(localPick===undefined) delete verdicts[keepSku]; else verdicts[keepSku]=localPick; }
     persist(); rebuild();
@@ -393,7 +399,8 @@ async function save(r,better){
   try{
     await fetch(SCRIPT_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},
       body:JSON.stringify({sku_id:r.sku_id,better:better,
-        old_iframe_url:r.old_iframe_url,new_iframe_url:r.new_iframe_url,reviewer})});
+        old_iframe_url:r.old_iframe_url,new_iframe_url:r.new_iframe_url,
+        image_logic_iframe_url:r.old_iframe_url,flare_iframe_url:r.new_iframe_url,reviewer})});
     setState("ok","saved");
   }catch(e){setState("err","save failed — cached locally");}
 }
