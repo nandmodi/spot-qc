@@ -265,7 +265,10 @@ function loadCfg(){try{const c=JSON.parse(localStorage.getItem(LS)||"{}");
   reviewer=c.reviewer||"";verdicts=c.verdicts||{};}
   catch(e){SCRIPT_URL=DEFAULT_SCRIPT_URL||"";SOURCE_CSV=DEFAULT_SOURCE_CSV||"";}}
 function persist(){localStorage.setItem(LS,JSON.stringify({scriptUrl:SCRIPT_URL,sourceCsv:SOURCE_CSV,reviewer,verdicts}));}
-function apiUrl(){return SCRIPT_URL+(SOURCE_CSV?"?csv="+encodeURIComponent(SOURCE_CSV):"");}
+function apiUrl(){
+  const base=SCRIPT_URL+(SOURCE_CSV?"?csv="+encodeURIComponent(SOURCE_CSV):"");
+  return base+(base.indexOf("?")>=0?"&":"?")+"_="+Date.now();  // cache-buster: always read fresh
+}
 
 function boot(){
   loadCfg();
@@ -285,7 +288,7 @@ function verdictsFromReviews(reviews){
 async function refresh(){
   setState("pend","loading sheet…"); $("banner").classList.remove("show");
   try{
-    const res=await fetch(apiUrl(),{method:"GET"});
+    const res=await fetch(apiUrl(),{method:"GET",cache:"no-store"});
     const j=await res.json();
     if(!j.ok)throw new Error(j.error||"backend error");
     rows=(j.skus||[]).map(normSku);
@@ -300,7 +303,7 @@ async function refresh(){
 async function sync(){
   if(!SCRIPT_URL||document.hidden)return;
   try{
-    const res=await fetch(apiUrl(),{method:"GET"});
+    const res=await fetch(apiUrl(),{method:"GET",cache:"no-store"});
     const j=await res.json();
     if(!j.ok)return;
     const keepSku=order.length?curRow().sku_id:null;
