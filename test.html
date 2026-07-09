@@ -1641,8 +1641,57 @@ const THREE60_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vThoeXNovzU
 const DONE_COUNT_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSWW7muoNyeY_1VOLhybuT7ChNHtkhAscxDikyiCPQChIWqi1m3KXsd9e0_i_UFE7bDrW_7kfH-vIhL/pub?gid=2128295653&single=true&output=csv";
 const DONE_COUNT_360_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vThoeXNovzUYQaHoFqHYY8p4hxrGTJWUPF8dQs0cinxvypfUVwAzFu74l06jhqXm0x611kRke13fa2t/pub?gid=1009592102&single=true&output=csv";
 
+// ── LEGACY (no longer used — kept only for reference) ──
 const FORM_STD = "https://docs.google.com/forms/d/e/1FAIpQLSdrjhynjWITfOqHpkgKX8enCmDKg1b3s0Ij05Cux36kPmZEUA/formResponse";
 const FORM_360 = 'https://docs.google.com/forms/d/e/1FAIpQLSeQH6R9-rYr1Kh2rwUBKu7uGvJAkRrvx8fnxF6jfkac7sNL2A/formResponse';
+
+// ─────────────────────────────────────────────
+//  SPOT-QC RESPONSE SAVING (replaces Google Forms)
+//  Image and 360 now write straight into their own Google Sheet
+//  via a bound Apps Script Web App (doPost). Video QA is unchanged.
+//
+//  >>> AFTER you deploy each Apps Script as a Web App, paste its
+//      /exec URL below (or set it once from the browser console via
+//      localStorage.setItem('spot_img_gas','…') / 'spot_360_gas'). <<<
+// ─────────────────────────────────────────────
+let IMG_GAS_URL     = "https://script.google.com/macros/s/AKfycbyhkdEsblX8_dfZJKYE9rMHkcRV5e3fLa9xwP5RAi8HSZVMdpQWugD3IShufH4KBloN/exec";
+let THREE60_GAS_URL = "https://script.google.com/macros/s/AKfycbzAT4uN3mUO0bTAV3j1Ikcl8zNLbMnhuEryWxMTfNAQzuJVuiz9J9CWUPxHDKqXc3QAlA/exec";
+try {
+  if (localStorage.getItem('spot_img_gas')) IMG_GAS_URL     = localStorage.getItem('spot_img_gas');
+  if (localStorage.getItem('spot_360_gas')) THREE60_GAS_URL = localStorage.getItem('spot_360_gas');
+} catch (e) {}
+
+// Offline-safe retry queue: if a POST fails (network/tab close), the row is
+// stashed in localStorage and re-sent on the next load / next submit.
+let spotQueue = [];
+try { spotQueue = JSON.parse(localStorage.getItem('spot_submit_queue') || '[]'); } catch (e) { spotQueue = []; }
+function saveSpotQueue() { try { localStorage.setItem('spot_submit_queue', JSON.stringify(spotQueue)); } catch (e) {} }
+
+// Fire-and-forget POST (same preflight-free pattern as the Video QA module):
+// no-cors + text/plain means no CORS preflight, and the row is appended
+// server-side even though the browser can't read the opaque response.
+async function postSpotResponse(url, payload) {
+  if (!url || url.indexOf('PASTE_') === 0) { console.warn('Spot-QC Web App URL not configured'); return false; }
+  try {
+    await fetch(url, {
+      method: 'POST', mode: 'no-cors', keepalive: true,
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+    return true;
+  } catch (e) { return false; }
+}
+
+async function flushSpotQueue() {
+  if (!spotQueue.length) return;
+  const remaining = [];
+  for (const item of spotQueue) {
+    const ok = await postSpotResponse(item.__url, item);
+    if (!ok) remaining.push(item);
+  }
+  spotQueue = remaining;
+  saveSpotQueue();
+}
 
 const PROXY = "https://media.spyneai.com/unsafe/1280x0/filters:format(webp):quality(85)/";
 
@@ -2242,76 +2291,64 @@ function handleFinalSubmit() {
     const r = group[idx];
     const is360 = mode === '360';
     const btn = _id('nextBtn');
-    
-    btn.disabled = true; 
+
+    btn.disabled = true;
     btn.textContent = 'Submitting...';
 
-    const formUrl = is360 ? FORM_360 : FORM_STD;
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = formUrl;
-    form.target = 'hidden_iframe';
+    let url, payload;
 
-    const data = {};
     if (is360) {
-        data['entry.703277665'] = r.sku || '';
-        data['entry.179295275'] = r.date || '';
-        data['entry.1125049159'] = r.img || '';
-        data['entry.575622617'] = r.issue || '';
-        data['entry.1815472287'] = r.ent || '';
-        data['entry.582537694'] = r.u || '';
-        data['entry.1372347436'] = r.spin_url || '';
-        data['entry.1243416507'] = user || '';
-        
         const checkedBoxes = Array.from(document.querySelectorAll('#three60Issues .issue-cb:checked')).map(cb => cb.value);
-        checkedBoxes.forEach(val => {
-            const input = document.createElement('input');
-            input.type = 'hidden'; input.name = 'entry.1751143375'; input.value = val;
-            form.appendChild(input);
-        });
-        
         const comment = _id('modalComment360').value.trim();
-        if (comment) {
-            const other = document.createElement('input');
-            other.type = 'hidden'; other.name = 'entry.1751143375'; other.value = '__other_option__';
-            form.appendChild(other);
-            const otherVal = document.createElement('input');
-            otherVal.type = 'hidden'; otherVal.name = 'entry.1751143375.other_option_response'; otherVal.value = comment;
-            form.appendChild(otherVal);
-        }
+        // "Reason" = the reviewer's verdict (Done / Wrong QC / To Be Edited /
+        // Missing Issue Marking) plus any free-text comment.
+        const reason = [checkedBoxes.join(', '), comment].filter(Boolean).join(' | ');
+
+        url = THREE60_GAS_URL;
+        payload = {
+            product:   '360',
+            timestamp: new Date().toISOString(),
+            skuId:     r.sku      || '',
+            spinId:    r.img      || '',   // Spin_ID
+            issues:    r.issue    || '',   // original issues flagged
+            enterprise:r.ent      || '',
+            user:      r.u        || '',   // original QC user
+            spinUrl:   r.spin_url || '',
+            reason:    reason,             // reviewer verdict
+            date:      r.date     || '',
+            qcBy:      user       || ''    // reviewer (logged-in user)
+        };
     } else {
-        data['entry.890284089'] = r.ent || '';
-        data['entry.5932044'] = [r.fqc, r.lqc, r.u].filter(x => x && x !== 'N/A').join(', ');
-        data['entry.1880389842'] = r.editor || '';
-        data['entry.1139236247'] = r.sku || '';
-        data['entry.661750446'] = r.img || '';
-        data['entry.1317530325'] = r.issue || '';
-        data['entry.1455673211'] = r.l || '';
-        data['entry.772576827'] = r.m || '';
-        data['entry.780536997'] = r.r || r.m;
-        data['entry.865196657'] = user || '';
-        
+        // Image: qc / edited / qc_tool
         const checkedBoxes = Array.from(document.querySelectorAll('#standardIssues .issue-cb:checked, #doneLabel .issue-cb:checked')).map(cb => cb.value);
-        checkedBoxes.forEach(val => {
-            const input = document.createElement('input');
-            input.type = 'hidden'; input.name = 'entry.778698303'; input.value = val;
-            form.appendChild(input);
-        });
+
+        url = IMG_GAS_URL;
+        payload = {
+            product:   'image',
+            mode:      mode,               // qc | edited | qc_tool
+            timestamp: new Date().toISOString(),
+            enterprise:r.ent || '',
+            qcUser:    [r.fqc, r.lqc, r.u].filter(x => x && x !== 'N/A').join(', '), // original QC users
+            editor:    r.editor || '',
+            skuId:     r.sku || '',
+            imageUrl:  r.img || '',
+            issue:     r.issue || '',
+            left:      r.l || '',
+            mid:       r.m || '',
+            right:     (r.r || r.m) || '',
+            loginUser: user || '',         // reviewer (logged-in user)
+            verdict:   checkedBoxes.join(', ') // Done or the marked issue tag(s)
+        };
     }
 
-    for (const key in data) {
-        const input = document.createElement('input');
-        input.type = 'hidden'; input.name = key; input.value = data[key];
-        form.appendChild(input);
-    }
+    // Fire-and-forget; on failure the row is queued and retried later.
+    postSpotResponse(url, payload).then(ok => {
+        if (!ok) { payload.__url = url; spotQueue.push(payload); saveSpotQueue(); }
+    });
 
-    document.body.appendChild(form);
-    form.submit();
-    
-    setTimeout(() => {
-        if (form.parentNode) document.body.removeChild(form);
-        afterSubmitActions();
-    }, 100);
+    // Advance immediately (optimistic). showRecord() re-enables the button for
+    // the next record; on the last record afterSubmitActions() exits to setup.
+    afterSubmitActions();
 }
 
 function afterSubmitActions() {
@@ -2333,6 +2370,8 @@ const doLogin = () => {
         _id('tAvatar').textContent = name.split(' ').map(n=>n[0]).join('').toUpperCase();
         _id('loginPage').style.display = 'none'; _id('app').style.display = 'flex';
         setMode('qc');
+        flushSpotQueue();                       // retry any responses stashed offline
+        setInterval(flushSpotQueue, 30000);     // keep retrying every 30s
     } else _id('loginErr').style.display='block';
 };
 
