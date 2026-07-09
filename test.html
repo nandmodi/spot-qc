@@ -1693,6 +1693,26 @@ async function flushSpotQueue() {
   saveSpotQueue();
 }
 
+// ── De-dup: SKUs already reviewed by anyone (read live from the response tab) ──
+// Populated on every load via the same Web App (doGet?action=reviewed). If the
+// read fails for any reason, the set stays empty and the queue simply falls back
+// to the old status-based filtering — de-dup never blocks the tool.
+let reviewedSkus = new Set();
+async function fetchReviewedSkus() {
+  reviewedSkus = new Set();
+  const url = (mode === '360') ? THREE60_GAS_URL : IMG_GAS_URL;
+  if (!url || url.indexOf('PASTE_') === 0) return;
+  try {
+    const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'action=reviewed&cb=' + Date.now());
+    const j = await r.json();
+    if (j && Array.isArray(j.skus)) {
+      j.skus.forEach(s => { if (s) reviewedSkus.add(String(s).trim()); });
+    }
+  } catch (e) {
+    console.warn('reviewed-SKU fetch failed; de-dup skipped this load', e);
+  }
+}
+
 const PROXY = "https://media.spyneai.com/unsafe/1280x0/filters:format(webp):quality(85)/";
 
 const FMAP = {
@@ -2082,7 +2102,7 @@ async function loadData() {
     const csvData = await response.text();
     Papa.parse(csvData, {
       header: true, skipEmptyLines: true,
-      complete: res => {
+      complete: async res => {
         raw = res.data.map(r => {
           if (mode === '360') {
             const issueField = getRowVal(r, ['Issues', 'validation_failure_reason', 'vdp_validation_failure_reason']);
@@ -2103,6 +2123,7 @@ async function loadData() {
             status: getRowVal(r, ['status', 'Status']), action: getRowVal(r, 'latest_image_action')
           };
         });
+        await fetchReviewedSkus();          // hide SKUs already reviewed by anyone
         fillFilters(); updateCount(); setLoading(false);
         fetchProductionCount();
       }
@@ -2133,6 +2154,7 @@ function getFiltered(){
     const entF = _id('entFilter360').value;
     const issueType = _id('issueFilter360').value.toLowerCase();
     return raw.filter(row => {
+      if (reviewedSkus.has((row.sku || '').trim())) return false;
       if (row.status !== '' && row.status.toLowerCase() !== 'null') return false;
       const rowDate = row.date;
       if (startStr && rowDate < startStr) return false;
@@ -2149,6 +2171,7 @@ function getFiltered(){
   } else {
     const ent = _id('entFilter').value, qcu = _id('qcUFilter').value;
     return raw.filter(r => {
+      if (reviewedSkus.has((r.sku || '').trim())) return false;
       if (r.status !== '' && r.status.toLowerCase() !== 'null') return false;
       if (ent && r.ent !== ent) return false;
       if (qcu && r.u !== qcu) return false;
@@ -2345,6 +2368,9 @@ function handleFinalSubmit() {
     postSpotResponse(url, payload).then(ok => {
         if (!ok) { payload.__url = url; spotQueue.push(payload); saveSpotQueue(); }
     });
+
+    // Hide this SKU right away so it can't reappear before the next reload.
+    if (r.sku) reviewedSkus.add(String(r.sku).trim());
 
     // Advance immediately (optimistic). showRecord() re-enables the button for
     // the next record; on the last record afterSubmitActions() exits to setup.
