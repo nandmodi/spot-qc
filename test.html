@@ -1693,23 +1693,27 @@ async function flushSpotQueue() {
   saveSpotQueue();
 }
 
-// ── De-dup: SKUs already reviewed by anyone (read live from the response tab) ──
-// Populated on every load via the same Web App (doGet?action=reviewed). If the
-// read fails for any reason, the set stays empty and the queue simply falls back
-// to the old status-based filtering — de-dup never blocks the tool.
-let reviewedSkus = new Set();
-async function fetchReviewedSkus() {
-  reviewedSkus = new Set();
+// ── De-dup: image/spin IDs already reviewed by anyone (read live from the response tab) ──
+// Keyed on the per-record identifier r.img — that's image_id for Image and Spin_ID
+// for 360 (both shown as "IMAGE ID" in the header). NOT SKU: one SKU has many images,
+// so SKU-level de-dup would wrongly hide a whole vehicle after one image.
+// Populated on every load via the same Web App (doGet?action=reviewed). If the read
+// fails, the set stays empty and the queue falls back to status filtering — de-dup
+// never blocks the tool.
+let reviewedIds = new Set();
+async function fetchReviewedIds() {
+  reviewedIds = new Set();
   const url = (mode === '360') ? THREE60_GAS_URL : IMG_GAS_URL;
   if (!url || url.indexOf('PASTE_') === 0) return;
   try {
     const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'action=reviewed&cb=' + Date.now());
     const j = await r.json();
-    if (j && Array.isArray(j.skus)) {
-      j.skus.forEach(s => { if (s) reviewedSkus.add(String(s).trim()); });
+    const arr = (j && (j.ids || j.skus)) || [];   // tolerate old/new key names
+    if (Array.isArray(arr)) {
+      arr.forEach(s => { if (s) reviewedIds.add(String(s).trim()); });
     }
   } catch (e) {
-    console.warn('reviewed-SKU fetch failed; de-dup skipped this load', e);
+    console.warn('reviewed-id fetch failed; de-dup skipped this load', e);
   }
 }
 
@@ -2123,7 +2127,7 @@ async function loadData() {
             status: getRowVal(r, ['status', 'Status']), action: getRowVal(r, 'latest_image_action')
           };
         });
-        await fetchReviewedSkus();          // hide SKUs already reviewed by anyone
+        await fetchReviewedIds();           // hide image/spin IDs already reviewed by anyone
         fillFilters(); updateCount(); setLoading(false);
         fetchProductionCount();
       }
@@ -2154,7 +2158,7 @@ function getFiltered(){
     const entF = _id('entFilter360').value;
     const issueType = _id('issueFilter360').value.toLowerCase();
     return raw.filter(row => {
-      if (reviewedSkus.has((row.sku || '').trim())) return false;
+      if (reviewedIds.has((row.img || '').trim())) return false;
       if (row.status !== '' && row.status.toLowerCase() !== 'null') return false;
       const rowDate = row.date;
       if (startStr && rowDate < startStr) return false;
@@ -2171,7 +2175,7 @@ function getFiltered(){
   } else {
     const ent = _id('entFilter').value, qcu = _id('qcUFilter').value;
     return raw.filter(r => {
-      if (reviewedSkus.has((r.sku || '').trim())) return false;
+      if (reviewedIds.has((r.img || '').trim())) return false;
       if (r.status !== '' && r.status.toLowerCase() !== 'null') return false;
       if (ent && r.ent !== ent) return false;
       if (qcu && r.u !== qcu) return false;
@@ -2369,8 +2373,8 @@ function handleFinalSubmit() {
         if (!ok) { payload.__url = url; spotQueue.push(payload); saveSpotQueue(); }
     });
 
-    // Hide this SKU right away so it can't reappear before the next reload.
-    if (r.sku) reviewedSkus.add(String(r.sku).trim());
+    // Hide this image/spin right away so it can't reappear before the next reload.
+    if (r.img) reviewedIds.add(String(r.img).trim());
 
     // Advance immediately (optimistic). showRecord() re-enables the button for
     // the next record; on the last record afterSubmitActions() exits to setup.
