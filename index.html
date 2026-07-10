@@ -2318,6 +2318,7 @@ function showRecord(){
 
   _id('mEnt').textContent = r.ent;
   _id('mSku').textContent = r.sku;
+  _id('labelImg').textContent = (mode === '360') ? 'Spin ID' : 'Image ID';
   _id('mImg').textContent = r.img;
   _id('mQcUsers').textContent = [r.fqc, r.lqc, r.u].filter(u=>u&&u!=='N/A').join(', ');
   _id('mEditor').textContent = r.editor;
