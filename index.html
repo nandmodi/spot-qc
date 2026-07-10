@@ -375,11 +375,14 @@ tr:hover td{background:var(--bg2)}
    videos via Start QA / Load All Pending (claimBatch happy path),
    and ends when they click Home (showEntScreen). Browsing Summary
    from the home page WITHOUT starting a session leaves both buttons
-   hidden. The .in-review class on .vqa-root drives this. */
-.vqa-root:not(.in-review) #snav-home,
-.vqa-root:not(.in-review) #snav-review,
-/* legacy: also catch the old onclick-targeted Home button if any */
-.vqa-root:not(.in-review) button.snav-item[onclick*="showEntScreen"]{display:none!important;}
+   hidden. The .in-review class on .vqa-root drives this.
+   EXCEPTION (requested): the Home button must stay visible any time
+   the user is looking at the Summary page, even if no review session
+   has started yet — otherwise there'd be no way back to the picker.
+   The .on-summary class (toggled in showPage()) drives that override. */
+.vqa-root:not(.in-review) #snav-review{display:none!important;}
+.vqa-root:not(.in-review):not(.on-summary) #snav-home,
+.vqa-root:not(.in-review):not(.on-summary) button.snav-item[onclick*="showEntScreen"]{display:none!important;}
 /* ── ROUND 8 #2: entScreen layout = vertical flex column.
    - app-logo (header) sits at top, fixed height
    - ent-card flexes to fill remaining space, height bounded by parent
@@ -398,6 +401,18 @@ tr:hover td{background:var(--bg2)}
 /* Header / search / filters / total / footer are flex-shrink:0 so they
    never get squeezed by the scrolling list. */
 .vqa-root .ent-card > :not(.ent-list){flex-shrink:0;}
+/* Two-column Home layout: enterprise picker + month-on-month report,
+   side by side. Higher specificity (3 classes) beats the single-card
+   width/margin rule above; !important matches its !important so ours wins. */
+.vqa-root .ent-layout{display:flex;gap:16px;align-items:stretch;flex:1 1 auto;min-height:0;width:min(1180px,calc(100% - 48px));margin:0 auto 14px;}
+.vqa-root .ent-layout .ent-card{width:auto!important;margin:0!important;flex:1.3 1 0!important;min-width:0;}
+.vqa-root .ent-monthly-card{flex:1 1 0!important;min-width:280px;}
+.vqa-root .monthly-table-wrap{flex:1 1 auto;overflow-y:auto;min-height:120px;border:1px solid var(--border);border-radius:10px;}
+.vqa-root .monthly-table-wrap table{width:100%;border-collapse:collapse;}
+.vqa-root .monthly-table-wrap thead th{position:sticky;top:0;text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);background:var(--surface2);white-space:nowrap;}
+.vqa-root .monthly-table-wrap tbody td{padding:9px 12px;font-size:12.5px;color:var(--text2);border-top:1px solid var(--border);white-space:nowrap;}
+.vqa-root .monthly-table-wrap tbody tr:hover td{background:var(--surface2);}
+@media (max-width:900px){ .vqa-root .ent-layout{flex-direction:column;} .vqa-root .ent-layout .ent-card{flex:1 1 auto!important;} }
 /* Round-6 #3: GLASS EFFECT on settings panel. */
 .vqa-root .settings-panel{background:rgba(42,42,41,.7)!important;backdrop-filter:blur(20px) saturate(1.5);-webkit-backdrop-filter:blur(20px) saturate(1.5);border-left:1px solid rgba(255,255,255,.1)!important;}
 .vqa-root.light .settings-panel{background:rgba(255,255,255,.7)!important;border-left:1px solid rgba(15,23,42,.08)!important;}
@@ -411,6 +426,11 @@ body.vqa-mode .bottom-ribbon{display:none!important;}
 body.vqa-mode .vqa-root{bottom:0;}
 /* Toast animation override */
 .vqa-root .toast{animation:none!important;}
+/* Explicit text-selection colors — without this, the browser's default
+   selection highlight (a light/near-white background) collides with the
+   app's own text colors in dark mode, making selected rows unreadable. */
+.vqa-root ::selection{background:var(--accent);color:#fff;}
+.vqa-root ::-moz-selection{background:var(--accent);color:#fff;}
 @keyframes spin{to{transform:rotate(360deg);}}
 /* Sidebar hover-open */
 .vqa-root .left-sidebar:hover{width:var(--sidebar-open-w);}
@@ -557,6 +577,14 @@ body.vqa-mode .vqa-root{bottom:0;}
 .vqa-root .ent-head-btn.danger:hover{border-color:var(--red);color:var(--red);}
 .vqa-root .ent-head-btn.spinning .ico{animation:spin .8s linear infinite;display:inline-block;}
 .vqa-root .ent-search-row{display:flex;gap:8px;align-items:center;flex-shrink:0;}
+.vqa-root .ent-date-presets{display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;}
+.vqa-root .ent-preset{
+  padding:6px 13px;border-radius:20px;border:1px solid var(--border2);
+  background:var(--surface2);color:var(--text2);font-size:11.5px;font-weight:600;
+  cursor:pointer;transition:all .15s;font-family:var(--font-body);white-space:nowrap;
+}
+.vqa-root .ent-preset:hover{border-color:var(--accent);color:var(--accent2);}
+.vqa-root .ent-preset.active{background:var(--accent);color:#fff;border-color:var(--accent);}
 .vqa-root .ent-search{
   flex:1;padding:9px 13px;border-radius:9px;
   border:1px solid var(--border2);background:var(--surface2);
@@ -665,7 +693,7 @@ body.vqa-mode .vqa-root{bottom:0;}
 .vqa-root .sidebar-divider{height:1px;background:var(--border);margin:8px 0;}
 
 /* ══════════ MAIN AREA ══════════ */
-.vqa-root .main-area{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.vqa-root .main-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;}
 
 /* ══════════ HEADER ══════════ */
 .vqa-root .header{
@@ -704,7 +732,7 @@ body.vqa-mode .vqa-root{bottom:0;}
 .vqa-root .icon-btn.spinning{animation:spin .8s linear infinite;}
 
 /* ══════════ APP BODY ══════════ */
-.vqa-root .app-body{display:flex;flex:1;overflow:hidden;}
+.vqa-root .app-body{display:flex;flex:1;overflow:hidden;min-height:0;}
 
 /* ══════════ FILTER SIDEBAR ══════════ */
 .vqa-root .filter-sidebar{
@@ -789,8 +817,8 @@ body.vqa-mode .vqa-root{bottom:0;}
 .vqa-root .b-qa      {background:rgba(59,130,246,.12);color:var(--accent2);}
 
 /* ══════════ MAIN CONTENT ══════════ */
-.vqa-root .content{flex:1;display:flex;flex-direction:column;overflow:hidden;}
-.vqa-root .page{display:none;flex:1;flex-direction:column;overflow:hidden;}
+.vqa-root .content{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;position:relative;}
+.vqa-root .page{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden;}
 .vqa-root .page.active{display:flex;}
 
 /* REVIEW PAGE */
@@ -884,10 +912,8 @@ body.vqa-mode .vqa-root{bottom:0;}
 .vqa-root .reason.active{background:var(--red);color:#fff;border-color:var(--red);}
 
 /* ══════════ SUMMARY PAGE ══════════ */
-.vqa-root .sum-page{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:14px;}
-.vqa-root .sum-page::-webkit-scrollbar{width:3px;}
-.vqa-root .sum-page::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
-.vqa-root .sum-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+.vqa-root .sum-page{position:absolute;inset:0;overflow:hidden;padding:18px;display:flex;flex-direction:column;gap:14px;}
+.vqa-root .sum-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;flex-shrink:0;}
 .vqa-root .sum-header h2{font-size:15px;font-weight:600;}
 .vqa-root .sum-filters{display:flex;gap:7px;flex-wrap:wrap;align-items:center;}
 .vqa-root .sum-filters select,.vqa-root .sum-filters input{
@@ -896,7 +922,7 @@ body.vqa-mode .vqa-root{bottom:0;}
 }
 .vqa-root .sum-filters select:focus,.vqa-root .sum-filters input:focus{border-color:var(--accent);}
 .vqa-root .sum-filters select option{background:var(--surface2);}
-.vqa-root .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;}
+.vqa-root .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;flex-shrink:0;}
 .vqa-root .kpi{
   background:var(--surface);border:1px solid var(--border);border-radius:11px;
   padding:14px;display:flex;flex-direction:column;gap:5px;
@@ -904,8 +930,12 @@ body.vqa-mode .vqa-root{bottom:0;}
 .vqa-root .kpi .klbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;}
 .vqa-root .kpi .kval{font-size:24px;font-weight:700;font-family:var(--mono);}
 .vqa-root .kpi .ksub{font-size:10px;color:var(--text3);}
-.vqa-root .tbl-wrap{background:var(--surface);border:1px solid var(--border);border-radius:11px;overflow:hidden;}
-.vqa-root .tbl-head{padding:11px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.vqa-root .tbl-wrap{background:var(--surface);border:1px solid var(--border);border-radius:11px;overflow:hidden;flex:1 1 auto;display:flex;flex-direction:column;min-height:0;}
+.vqa-root .tbl-head{padding:11px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.vqa-root .tbl-scroll{flex:1 1 auto;overflow:auto;min-height:0;}
+.vqa-root .tbl-scroll::-webkit-scrollbar{width:3px;}
+.vqa-root .tbl-scroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+.vqa-root .tbl-wrap table thead th{position:sticky;top:0;z-index:2;}
 .vqa-root .tbl-head span{font-size:13px;font-weight:500;}
 .vqa-root table{width:100%;border-collapse:collapse;}
 .vqa-root thead th{
@@ -1286,11 +1316,12 @@ body.vqa-mode .vqa-root{bottom:0;}
 <!-- ══════════ ENTERPRISE PICKER ══════════ -->
 <div class="screen hidden" id="entScreen">
   <div class="app-logo">⬡ VIDEO QC REVIEW</div>
+  <div class="ent-layout">
   <div class="ent-card">
     <div class="ent-head">
       <div>
         <h2>Home</h2>
-        <p class="sub">Pick an enterprise to start QA, or filter by user / verified status.</p>
+        <p class="sub">Pick an enterprise to start QA, or filter by user / verified status / date.</p>
       </div>
       <div class="ent-head-actions">
         <button class="ent-head-btn" id="entSyncBtn" onclick="vqa.entSync()" title="Sync data from sheet">
@@ -1314,6 +1345,14 @@ body.vqa-mode .vqa-root{bottom:0;}
         <option value="rejected">✗ Rejected</option>
       </select>
     </div>
+    <div class="ent-search-row">
+      <input class="ent-search" id="entDateRange" placeholder="📅 Select date range…" autocomplete="off" readonly/>
+    </div>
+    <div class="ent-date-presets" id="entDatePresets">
+      <button type="button" class="ent-preset" data-preset="month" onclick="vqa.applyEntDatePreset('month')">This Month</button>
+      <button type="button" class="ent-preset" data-preset="lastMonth" onclick="vqa.applyEntDatePreset('lastMonth')">Last Month</button>
+      <button type="button" class="ent-preset active" data-preset="all" onclick="vqa.applyEntDatePreset('all')">All Time</button>
+    </div>
     <div class="ent-total" id="entTotalBox">
       <span class="lbl" id="entTotalLbl">Total available pending QA</span>
       <span class="num" id="entTotal">—</span>
@@ -1327,6 +1366,19 @@ body.vqa-mode .vqa-root{bottom:0;}
       </div>
       <button class="btn-outline" onclick="vqa.claimBatch(null)">Load All Pending →</button>
     </div>
+  </div>
+
+  <div class="ent-card ent-monthly-card">
+    <div class="ent-head">
+      <div>
+        <h2>Month-on-Month</h2>
+        <p class="sub">Pending vs. done, grouped by month, across all enterprises.</p>
+      </div>
+    </div>
+    <div class="monthly-table-wrap" id="monthlyTableWrap">
+      <div style="padding:20px;text-align:center;color:var(--text3);">Loading…</div>
+    </div>
+  </div>
   </div>
 </div>
 
@@ -1359,7 +1411,7 @@ body.vqa-mode .vqa-root{bottom:0;}
       <button class="snav-item" id="snav-settings" onclick="vqa.showSettings()" style="display:none;">
         <span class="sico">⚙</span><span class="snav-label">Settings</span>
       </button>
-      <button class="snav-item" onclick="vqa.showEntScreen()">
+      <button class="snav-item" id="snav-home" onclick="vqa.showEntScreen()">
         <span class="sico">⌂</span><span class="snav-label">Home</span>
       </button>
       <button class="snav-item" onclick="vqa.toggleTheme()">
@@ -1479,6 +1531,7 @@ body.vqa-mode .vqa-root{bottom:0;}
                 <div class="reason" onclick="vqa.toggleReason(this,'Data Issue')">Data</div>
                 <div class="reason" onclick="vqa.toggleReason(this,'Image Selection Issue')">Image Selection</div>
                 <div class="reason" onclick="vqa.toggleReason(this,'Repeated Images')">Repeated Images</div>
+                <div class="reason" onclick="vqa.toggleReason(this,'Text overlapping')">Text overlapping</div>
               </div>
             </div>
           </div>
@@ -1508,7 +1561,7 @@ body.vqa-mode .vqa-root{bottom:0;}
                 <span>Reviewed Videos</span>
                 <span id="sumCount" style="font-size:11px;color:var(--text3);font-family:var(--mono);">0 records</span>
               </div>
-              <div style="overflow-x:auto;">
+              <div class="tbl-scroll">
                 <table>
                   <thead><tr><th>Video ID</th><th>Enterprise</th><th>VIN</th><th>Action</th><th>Reviewer</th><th>QC + QA Notes</th><th>Timestamp</th><th></th></tr></thead>
                   <tbody id="sumTbody"></tbody>
@@ -1762,7 +1815,7 @@ function prefetch(src) {
   const i = new Image(); i.src = src;
 }
 
-const PWDS = {"Nand Kishor":"spyne@123","Shweta Gupta":"shweta@12345","Ranbir Manoranjan":"spyne@123","Nitin Kumar":"spyne@123","Praveen Agarwal":"spyne@123","Raj Tripathi":"spyne@123","Rohit Chauhan":"spyne@123","Ajay Devrani":"spyne@123","Dhruv Kumar": "dhruv@123","Tannu Singh": "tannu@123","Khushi Gautam": "khushi@123","Vijay Gautam": "vijay@123","Karmendra Singh": "karmendra@123"};
+const PWDS = {"Nand Kishor":"spyne@123","Ranbir Manoranjan":"spyne@123","Nitin Kumar":"spyne@123","Praveen Agarwal":"spyne@123","Raj Tripathi":"spyne@123","Rohit Chauhan":"spyne@123","Ajay Devrani":"spyne@123"};
 
 function _id(id){ return document.getElementById(id); }
 
@@ -2508,6 +2561,7 @@ let colMap       = {qcStatus:'',qcUser:''};
 let currentPage  = 'review';
 let curEnterprise= null;
 let sidebarOpen  = false;
+let entFp        = null; // flatpickr instance for the Home page date-range filter
 
 // ─────────────────────────────────────────────
 //  INIT
@@ -2538,6 +2592,10 @@ function init() {
   renderEmailMapUI();
   loadCfgInputs();
   updateQueueBadge();
+  // Guarded: if flatpickr hasn't loaded yet (slow network, blocked CDN,
+  // ad-blocker, etc.) this must NOT abort the rest of init() — reviewer
+  // loading and data fetch below are essential and have to run regardless.
+  try { initEntDatePicker(); } catch (e) { console.error('[VideoQA] date picker init failed (non-fatal):', e); }
 
   const saved = ls('qa_reviewer');
   if (saved) {
@@ -2977,6 +3035,64 @@ function buildEntList() {
   }
 
   renderEntList();  // renderEntList now sets the top totals based on active filters
+  renderMonthlyReport();
+}
+
+// ─────────────────────────────────────────────
+//  MONTH-ON-MONTH PENDING REPORT (Home page, beside the enterprise list)
+// ─────────────────────────────────────────────
+function buildMonthlyReport() {
+  const map = {}; // 'YYYY-MM' -> {total, done}
+  allVideos.forEach(v => {
+    const raw = v.created || v.updated;
+    if (!raw) return;
+    const d = new Date(raw);
+    if (isNaN(d)) return;
+    const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    if (!map[key]) map[key] = { total: 0, done: 0 };
+    map[key].total++;
+    if (isQAed(v)) map[key].done++;
+  });
+  return map;
+}
+function monthLabel(key) {
+  const [y, m] = key.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+}
+function renderMonthlyReport() {
+  const wrap = document.getElementById('monthlyTableWrap');
+  if (!wrap) return;
+  const map = buildMonthlyReport();
+  const keys = Object.keys(map).sort().reverse(); // most recent month first
+  if (!keys.length) {
+    wrap.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text3);">No data yet</div>';
+    return;
+  }
+  const rows = keys.map(k => {
+    const s = map[k];
+    const pending = s.total - s.done;
+    const pct = s.total ? Math.round((s.done / s.total) * 100) : 0;
+    return `<tr>
+      <td>${escH(monthLabel(k))}</td>
+      <td class="mono">${s.total.toLocaleString()}</td>
+      <td class="mono" style="color:var(--yellow);font-weight:600;">${pending.toLocaleString()}</td>
+      <td class="mono" style="color:var(--green);">${s.done.toLocaleString()}</td>
+      <td class="mono" style="color:var(--text3);">${pct}%</td>
+    </tr>`;
+  }).join('');
+  wrap.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Month</th>
+          <th>Total</th>
+          <th>Pending</th>
+          <th>Done</th>
+          <th>Completion</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
 }
 
 function resetLocalCache() {
@@ -3068,14 +3184,81 @@ async function runDiagnostics() {
   }
 }
 
-// Get the videos matching the current enterprise-screen filters (search, user, verified_status).
+// Single-calendar date-range picker for the Home page filter (Metabase-style:
+// click once for start, again for end, both in the same popup calendar).
+function initEntDatePicker() {
+  const el = document.getElementById('entDateRange');
+  if (!el || entFp) return;
+  entFp = flatpickr(el, {
+    mode: 'range',
+    dateFormat: 'Y-m-d',
+    altInput: true,
+    altFormat: 'M j, Y',
+    altInputClass: 'ent-search',
+    defaultDate: null,
+    onClose: () => {
+      // A manual calendar pick supersedes any preset — clear the highlight.
+      document.querySelectorAll('.ent-preset').forEach(b => b.classList.remove('active'));
+      renderEntList();
+    },
+  });
+}
+
+// Presets: "This Month", "Last Month", "All Time". Sets the flatpickr range
+// programmatically (without opening the calendar) and re-filters the list.
+function applyEntDatePreset(preset) {
+  const now = new Date();
+  let start = null, end = null;
+  if (preset === 'month') {
+    start = new Date(now.getFullYear(), now.getMonth(), 1);
+    end   = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  } else if (preset === 'lastMonth') {
+    start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    end   = new Date(now.getFullYear(), now.getMonth(), 0);
+  }
+  // 'all' (or anything else) → no range, i.e. clear the filter.
+  if (entFp) {
+    if (start && end) entFp.setDate([start, end], false);
+    else entFp.clear();
+  }
+  document.querySelectorAll('.ent-preset').forEach(b => b.classList.toggle('active', b.dataset.preset === preset));
+  renderEntList();
+}
+
+// Reads the currently selected range from the Home page date picker.
+// Returns {from:'', to:''} (both blank) when nothing is selected yet.
+function getEntDateRange() {
+  if (!entFp || !entFp.selectedDates || !entFp.selectedDates.length) return { from: '', to: '' };
+  const dates = entFp.selectedDates;
+  // IMPORTANT: don't use toISOString() here — it converts to UTC first, which
+  // silently shifts the date back a day for any timezone ahead of UTC (e.g.
+  // IST), pulling in extra records from the wrong day/month. Use the Date's
+  // own local getters instead so "Jul 1" really means local Jul 1.
+  const toYMD = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const from = dates[0] ? toYMD(dates[0]) : '';
+  // Single date picked (range not yet closed) → treat it as both bounds so
+  // the filter narrows to that one day instead of doing nothing.
+  const to = dates[1] ? toYMD(dates[1]) : from;
+  return { from, to };
+}
+
+
 // Use this for both rendering counts and deciding what to claim.
 function getEntFilteredVideos() {
   const userF   = (document.getElementById('entFilterUser')?.value   || '').trim().toLowerCase();
   const statusF = (document.getElementById('entFilterStatus')?.value || '').trim().toLowerCase();
+  const { from: fromF, to: toF } = getEntDateRange();
   return allVideos.filter(v => {
     if (userF   && (v.qc_user || '').trim().toLowerCase() !== userF)   return false;
     if (statusF && (v.status  || '').trim().toLowerCase() !== statusF) return false;
+    if (fromF || toF) {
+      const raw = v.created || v.updated;
+      if (!raw) return false;
+      const d = new Date(raw);
+      if (isNaN(d)) return false;
+      if (fromF && d < new Date(fromF + 'T00:00:00')) return false;
+      if (toF   && d > new Date(toF   + 'T23:59:59')) return false;
+    }
     return true;
   });
 }
@@ -3091,7 +3274,7 @@ function renderEntList() {
       users.map(u=>`<option value="${escAttr(u)}">${escH(u)}</option>`).join('');
   }
 
-  // Apply user + verified_status filters
+  // Apply user + verified_status + date-range filters
   const filtered = getEntFilteredVideos();
 
   const map = {};
@@ -3200,17 +3383,26 @@ async function claimBatch(enterprise) {
     reviewer: reviewer.email,
     timestamp: new Date().toISOString(),
   };
-  // If the user has the QC user / verified_status filters set, pass an
+  // If the user has the QC user / verified_status / date filters set, pass an
   // explicit list of video_ids so the server only claims matching rows.
   // Otherwise keep the enterprise-only path (faster on the server side).
   const userF   = (document.getElementById('entFilterUser')?.value   || '').trim().toLowerCase();
   const statusF = (document.getElementById('entFilterStatus')?.value || '').trim().toLowerCase();
-  const hasFilters = !!(userF || statusF);
+  const { from: fromF, to: toF } = getEntDateRange();
+  const hasFilters = !!(userF || statusF || fromF || toF);
   if (hasFilters) {
     const matching = allVideos.filter(v => {
       if (enterprise && v.enterprise !== enterprise) return false;
       if (userF   && (v.qc_user || '').trim().toLowerCase() !== userF)   return false;
       if (statusF && (v.status  || '').trim().toLowerCase() !== statusF) return false;
+      if (fromF || toF) {
+        const raw = v.created || v.updated;
+        if (!raw) return false;
+        const d = new Date(raw);
+        if (isNaN(d)) return false;
+        if (fromF && d < new Date(fromF + 'T00:00:00')) return false;
+        if (toF   && d > new Date(toF   + 'T23:59:59')) return false;
+      }
       if (isQAed(v) || isLockedByOther(v)) return false;
       return true;
     });
@@ -3336,10 +3528,15 @@ async function claimBatch(enterprise) {
   updateStats();
   updateBatchPill();
 
+  // Always land on the Review page after assigning a batch — regardless of
+  // which page (e.g. Summary) was active before the user went Home to claim.
+  showPage('review');
+
   // Switch screens — but DON'T restore buttons yet. We'll restore them
-  // once the first video has loaded metadata (or after a 6s safety timeout),
-  // so the user sees "Assigning…" persist through the actual loading time
-  // rather than flashing back to "Start QA".
+  // once the first video has actually finished loading (or, failing that,
+  // after a generous safety-timeout), so the user sees "Assigning…" persist
+  // through the real loading time rather than flashing back to "Start QA"
+  // while data/video is still on the way.
   hideScreens();
 
   const restoreOnceVideoReady = () => {
@@ -3353,10 +3550,16 @@ async function claimBatch(enterprise) {
   if (player) {
     const finish = () => restoreOnceVideoReady();
     player.addEventListener('loadedmetadata', finish, { once: true });
+    player.addEventListener('canplay',        finish, { once: true });
     player.addEventListener('error',          finish, { once: true });
+    // Safety net only — real completion above should normally fire well
+    // before this. Generous so slow connections/large batches don't get
+    // their "Assigning…" indicator cut off mid-load.
+    setTimeout(restoreOnceVideoReady, 30000);
+  } else {
+    // Nothing to load (e.g. no videos matched) — nothing to wait for.
+    restoreOnceVideoReady();
   }
-  // Safety: never leave buttons in loading state forever
-  setTimeout(restoreOnceVideoReady, 6000);
 
   const skippedNote = skipped.length ? ` (${skipped.length} were taken by others)` : '';
   toast(`✓ Claimed ${claimed.length} video${claimed.length===1?'':'s'}${enterprise?' from '+enterprise:''}${skippedNote}`,'success');
@@ -3958,9 +4161,7 @@ function gotoReview() {
 }
 
 function showPage(page) {
-  /* Round 9: hide entScreen so non-home page content is visible. Do NOT
-     touch .in-review — the user clicking Summary while pre-session must
-     keep Home + Review buttons hidden. */
+  /* Round 9: hide entScreen so non-home page content is visible. */
   document.getElementById('entScreen').classList.add('hidden');
   currentPage=page;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -3970,6 +4171,12 @@ function showPage(page) {
   // Hide the filter/video-list sidebar on Summary so it takes the whole content area
   const fs = document.getElementById('filterSidebar');
   if (fs) fs.style.display = (page === 'summary') ? 'none' : '';
+  /* Requested fix: keep the Home button visible whenever the user is on the
+     Summary page, even if they never started a review session (no
+     .in-review yet) — otherwise there'd be no way back to the picker. The
+     .on-summary class drives a CSS override on the Home button only. */
+  const _r2 = document.getElementById('videoQAContainer');
+  if (_r2) _r2.classList.toggle('on-summary', page === 'summary');
   if(page==='summary'){renderSummary();populateSumFilters();}
 }
 
@@ -4320,7 +4527,7 @@ document.addEventListener('visibilitychange', () => {
     // top-level navigation
     showEntScreen, showPage, gotoReview, toggleSidebar, toggleTheme, reloadData,
     // enterprise picker
-    entSync, claimBatch, resetLocalCache, runDiagnostics, renderEntList,
+    entSync, claimBatch, resetLocalCache, runDiagnostics, renderEntList, applyEntDatePreset,
     // filters
     applyFilter, clearFilters, setDate, applyCF, removeCF,
     // review actions
