@@ -4648,3 +4648,11 @@ document.addEventListener('visibilitychange', () => {
 </script>
 
 <style>#contStdFilters{display:none !important}</style>
+
+<script>
+/* Hide std filter bar on image tabs (also on setup screen) */
+(function(){var IMG={qc:1,edited:1,qc_tool:1};
+function tog(){var f=document.getElementById('contStdFilters'); if(f) f.style.display=IMG[(typeof mode!=='undefined'?mode:'')]?'none':'';}
+try{var _s=setMode; setMode=function(){var r=_s.apply(this,arguments); try{tog();}catch(e){} return r;};}catch(e){}
+tog();})();
+</script>
