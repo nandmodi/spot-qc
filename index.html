@@ -4589,5 +4589,71 @@ document.addEventListener('visibilitychange', () => {
   };
 })();
 </script>
+  <!-- ===== RE-QC AUDIT ADD-ON — paste just before </body> ===== -->
+<style>#contStdFilters{display:none !important}</style>
+
+<script>
+/* Re-QC Audit core */
+(function(){
+  "use strict";
+  var AUDIT_URL="https://script.google.com/macros/s/AKfycbye_GzIkPXMGsVKt9-biOzUkTh-OzAdxgpuevpMRBHsEHeOYsOBMh-Q1q2mSYEmgrBp/exec";
+  var IMAGE_MODES={qc:1,edited:1,qc_tool:1};
+  var BATCH=100, REFILL_AT=8;
+  var claimedPending=[], auditActive=false;
+  var isImg=function(m){return !!IMAGE_MODES[m];};
+  var rev=function(){try{return (typeof user!=='undefined'&&user)?String(user):'reviewer';}catch(e){return 'reviewer';}};
+  try{ IMG_GAS_URL=AUDIT_URL; }catch(e){}
+  function qcBlock(){var l=document.getElementById('labelUser');return (l&&l.closest)?l.closest('.rmc'):null;}
+  function setQcHidden(h){var b=qcBlock();if(b)b.style.display=h?'none':'';}
+  function hideFilters(){var f=document.getElementById('contStdFilters');if(f)f.style.display='none';}
+  async function fetchClaim(){
+    var r; try{ r=await fetch(AUDIT_URL+'?action=auditbatch&mode='+encodeURIComponent(mode)+'&reviewer='+encodeURIComponent(rev())+'&n='+BATCH).then(function(x){return x.json();}); }catch(e){ r=null; }
+    if(!r||!r.ok||!r.claimed) return [];
+    var byImg={}; for(var i=0;i<raw.length;i++) byImg[raw[i].img]=raw[i];
+    var rows=[]; r.claimed.forEach(function(c){var row=byImg[c.image_id]; if(row){rows.push(row); claimedPending.push(c.image_id);}});
+    return rows;
+  }
+  function waitRaw(cb,t){t=t||0; if(typeof raw!=='undefined'&&raw&&raw.length>0){cb();return;} if(t>30){cb();return;} setTimeout(function(){waitRaw(cb,t+1);},300);}
+  function showReviewScreen(){var sp=document.getElementById('setupPage'),rp=document.getElementById('reviewPage'); if(sp)sp.style.display='none'; if(rp)rp.style.display='flex';}
+  var _start=startReview;
+  startReview=function(){
+    if(!isImg(mode)) return _start.apply(this,arguments);
+    auditActive=true; claimedPending=[]; hideFilters(); setQcHidden(true);
+    try{ if(!raw||raw.length===0) loadData(); }catch(e){}
+    waitRaw(function(){
+      fetchClaim().then(function(rows){
+        if(!rows.length){ if(typeof toast==='function') toast('Is tab me audit item nahi bacha'); return; }
+        group.length=0; for(var k=0;k<rows.length;k++) group.push(rows[k]);
+        idx=0; showReviewScreen(); showRecord();
+      });
+    });
+  };
+  var _after=afterSubmitActions;
+  afterSubmitActions=function(){
+    if(auditActive&&isImg(mode)){
+      var cur=group[idx]; if(cur){var i=claimedPending.indexOf(cur.img); if(i>=0) claimedPending.splice(i,1);}
+      if(group.length-idx-1<=REFILL_AT){ fetchClaim().then(function(rows){ for(var k=0;k<rows.length;k++) group.push(rows[k]); }); }
+    }
+    return _after.apply(this,arguments);
+  };
+  var _show=showRecord; showRecord=function(){var x=_show.apply(this,arguments); if(isImg(mode)) setQcHidden(true); return x;};
+  function releaseAll(){ if(!claimedPending.length) return; try{ navigator.sendBeacon(AUDIT_URL, JSON.stringify({action:'auditrelease',imageIds:claimedPending,reviewer:rev()})); }catch(e){} claimedPending=[]; }
+  var _exit=exitToSetup; exitToSetup=function(){releaseAll(); return _exit.apply(this,arguments);};
+  var _logout=doLogout; doLogout=function(){releaseAll(); return _logout.apply(this,arguments);};
+  window.addEventListener('beforeunload', releaseAll);
+  function rebind(){var sb=document.getElementById('startBtn'); if(sb) sb.onclick=startReview;}
+  var _sm=setMode; setMode=function(){var r=_sm.apply(this,arguments); try{rebind();}catch(e){} return r;};
+  rebind();
+})();
+</script>
+
+<script>
+/* Hide std filter bar on image tabs (setup screen too) */
+(function(){var IMG={qc:1,edited:1,qc_tool:1};
+function tog(){var f=document.getElementById('contStdFilters'); if(f) f.style.display=IMG[(typeof mode!=='undefined'?mode:'')]?'none':'';}
+try{var _s=setMode; setMode=function(){var r=_s.apply(this,arguments); try{tog();}catch(e){} return r;};}catch(e){}
+tog();})();
+</script>
+<!-- ===== END RE-QC AUDIT ADD-ON ===== -->
 </body>
 </html>
