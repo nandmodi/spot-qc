@@ -313,7 +313,7 @@ body{
 <script>
 const CSV_IMAGES = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSXAlw0cMgT7fInzBKH1xJcfL67Ev9Fq0cyUwpg9WJc4OYtn-P6iRsBi8Xqmdzib8MRwNLtPsS0X2Qx/pub?gid=1092667553&single=true&output=csv';
 const CSV_360   = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSXAlw0cMgT7fInzBKH1xJcfL67Ev9Fq0cyUwpg9WJc4OYtn-P6iRsBi8Xqmdzib8MRwNLtPsS0X2Qx/pub?gid=1075238960&single=true&output=csv';
-const PROXY     = 'https://media.spyneai.com/unsafe/0x0/filters:format(webp)/';
+const PROXY     = 'https://media.spyneai.com/unsafe/400x400/filters:format(webp)/';
 
 let mode = 'images';
 let imagesData = [], data360 = [];
@@ -342,8 +342,13 @@ showLoad('Loading Images records…');
 fetch(CSV_IMAGES)
   .then(r => r.text())
   .then(csv => {
-    imagesData = Papa.parse(csv, {header:true, skipEmptyLines:true}).data
-                     .filter(r => (r['Submit Issue']||'').trim() !== 'Done');
+    const parsed = Papa.parse(csv, {header:true, skipEmptyLines:true}).data;
+    resolveImageKeys(parsed);
+    if (parsed.length) {
+      console.log('[MeetReview] Image sheet headers:', Object.keys(parsed[0]));
+      console.log('[MeetReview] Resolved image keys:', imgKeys);
+    }
+    imagesData = parsed.filter(r => (r[imgKeys.comment]||'').trim() !== 'Done');
     populateImagesFilters(imagesData);
     filtersReady.images = true;
     if (mode === 'images') applyFilters();
@@ -371,20 +376,52 @@ function loadData360() {
 
 function populateImagesFilters(data) {
   const ents = [...new Set(data.map(r => r['Enterprise']).filter(Boolean))].sort();
-  const qcus = [...new Set(data.flatMap(r => (r['qc-user']||'').split(',')).map(s=>s.trim()).filter(Boolean))].sort();
-  const eds  = [...new Set(data.map(r => r['editing user']).filter(Boolean))].sort();
+  const qcus = [...new Set(data.flatMap(r => (r[imgKeys.qc]||'').split(',')).map(s=>s.trim()).filter(Boolean))].sort();
+  const eds  = [...new Set(data.map(r => r[imgKeys.editor]).filter(Boolean))].sort();
   fill('enterpriseFilter', ents, true);
   fill('qcUserFilter', qcus);
   fill('editingUserFilter', eds);
   ['enterpriseFilter','qcUserFilter','editingUserFilter'].forEach(id =>
     document.getElementById(id).addEventListener('change', applyFilters));
 }
-// Find the actual column key by normalising (trim, lowercase, strip spaces/underscores)
-function findColKey(data, target) {
-  if (!data.length) return target;
-  const norm = s => s.trim().toLowerCase().replace(/[\s_]+/g,'');
-  const t = norm(target);
-  return Object.keys(data[0]).find(k => norm(k) === t) || target;
+// Normalise a header: trim, lowercase, strip spaces/underscores/hyphens
+const normHdr = s => (s||'').trim().toLowerCase().replace(/[\s_\-]+/g,'');
+
+// Resolve a logical field to the real column key using a list of alias candidates.
+// Returns the first header whose normalised form matches any normalised alias.
+function resolveKey(data, aliases) {
+  if (!data.length) return aliases[0];
+  const keys = Object.keys(data[0]);
+  for (const a of aliases) {
+    const t = normHdr(a);
+    const hit = keys.find(k => normHdr(k) === t);
+    if (hit) return hit;
+  }
+  return aliases[0]; // fallback (may not exist -> renders as –)
+}
+
+// Backwards-compatible single-target lookup (used by 360 filters)
+function findColKey(data, target) { return resolveKey(data, [target]); }
+
+// Resolved image column keys (populated after Images CSV loads)
+let imgKeys = {
+  sku:'sku_id', imageId:'image_id', qc:'qc-user', editor:'editing user',
+  issue:'Issue', comment:'Submit Issue',
+  input:'input image', ai:'Ai image', final:'Final Image'
+};
+
+function resolveImageKeys(data) {
+  imgKeys = {
+    sku:     resolveKey(data, ['sku_id','sku id','sku','skuid']),
+    imageId: resolveKey(data, ['image_id','image id','imageid','img id','media_id','media id']),
+    qc:      resolveKey(data, ['qc-user','qc user','qcuser','qc']),
+    editor:  resolveKey(data, ['editing user','editor','editing_user']),
+    issue:   resolveKey(data, ['issue','issue type','issues']),
+    comment: resolveKey(data, ['submit issue','comment','remark','remarks','submit_issue']),
+    input:   resolveKey(data, ['input image','input_image','input','original image','original','before image','before']),
+    ai:      resolveKey(data, ['ai image','ai_image','ai output','ai','output image','ai output image','output']),
+    final:   resolveKey(data, ['final image','final_image','final','output final','corrected image','after image','after'])
+  };
 }
 
 let qcByKey   = 'QC By';
@@ -451,8 +488,8 @@ function applyFilters() {
       if (start && rd < start) return false;
       if (end   && rd > end)   return false;
       if (ent && r['Enterprise'] !== ent) return false;
-      if (qcu && !(r['qc-user']||'').includes(qcu)) return false;
-      if (ed  && r['editing user'] !== ed) return false;
+      if (qcu && !(r[imgKeys.qc]||'').includes(qcu)) return false;
+      if (ed  && r[imgKeys.editor] !== ed) return false;
       return true;
     }), isFiltered());
     imagesIdx = 0;
@@ -507,19 +544,19 @@ function renderImages() {
       <div class="mc"><span class="mc-l">Date</span><span class="mc-v">${(r['Timestamp']||'').split(' ')[0]||'–'}</span></div>
       <div class="mc"><span class="mc-l">Enterprise</span><span class="mc-v">${r['Enterprise']||'–'}</span></div>
       <div class="mc-double">
-        <div class="mc-sub"><span class="mc-sub-l">SKU ID</span><span class="mc-sub-v">${r['sku_id']||'–'}</span></div>
-        <div class="mc-sub"><span class="mc-sub-l">Image ID</span><span class="mc-sub-v">${r['image_id']||'–'}</span></div>
+        <div class="mc-sub"><span class="mc-sub-l">SKU ID</span><span class="mc-sub-v">${r[imgKeys.sku]||'–'}</span></div>
+        <div class="mc-sub"><span class="mc-sub-l">Image ID</span><span class="mc-sub-v">${r[imgKeys.imageId]||'–'}</span></div>
       </div>
-      <div class="mc"><span class="mc-l">QC User</span><span class="mc-v">${r['qc-user']||'–'}</span></div>
-      <div class="mc"><span class="mc-l">Editor</span><span class="mc-v">${r['editing user']||'–'}</span></div>
-      <div class="mc mc-warn"><span class="mc-l">⚠ Issue</span><span class="mc-v">${r['Issue']||'–'}</span></div>
-      <div class="mc mc-wide"><span class="mc-l">Comment (Submit Issue)</span><span class="mc-v">${r['Submit Issue']||'–'}</span></div>
+      <div class="mc"><span class="mc-l">QC User</span><span class="mc-v">${r[imgKeys.qc]||'–'}</span></div>
+      <div class="mc"><span class="mc-l">Editor</span><span class="mc-v">${r[imgKeys.editor]||'–'}</span></div>
+      <div class="mc mc-warn"><span class="mc-l">⚠ Issue</span><span class="mc-v">${r[imgKeys.issue]||'–'}</span></div>
+      <div class="mc mc-wide"><span class="mc-l">Comment (Submit Issue)</span><span class="mc-v">${r[imgKeys.comment]||'–'}</span></div>
     </div>
     <div class="media-area">
       <div class="images-row">
-        ${imgEl(r['input image'], 'Input')}
-        ${imgEl(r['Ai image'],    'AI Output')}
-        ${imgEl(r['Final Image'], 'Final')}
+        ${imgEl(r[imgKeys.input], 'Input')}
+        ${imgEl(r[imgKeys.ai],    'AI Output')}
+        ${imgEl(r[imgKeys.final], 'Final')}
       </div>
     </div>`;
 }
