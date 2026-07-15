@@ -4722,3 +4722,24 @@ try{var _s=setMode; setMode=function(){var r=_s.apply(this,arguments); try{tog()
 tog();})();
 </script>
 <!-- ===== END RE-QC AUDIT ADD-ON ===== -->
+
+<!-- ===== IDLE AUTO-LOGOUT (30 min) ===== -->
+<script>
+(function(){
+  var IDLE_MS=30*60*1000;
+  var last=Date.now();
+  function bump(){last=Date.now();}
+  ['mousemove','mousedown','keydown','scroll','touchstart','click'].forEach(function(ev){
+    window.addEventListener(ev, bump, {passive:true, capture:true});
+  });
+  setInterval(function(){
+    if(typeof user==='undefined' || !user){ last=Date.now(); return; }
+    if(Date.now()-last >= IDLE_MS){
+      last=Date.now();
+      try{ if(typeof toast==='function') toast('30 min inactive \u2014 logging out'); }catch(e){}
+      try{ if(typeof doLogout==='function') doLogout(); }catch(e){}
+    }
+  }, 30000);
+})();
+</script>
+<!-- ===== END IDLE AUTO-LOGOUT ===== -->
