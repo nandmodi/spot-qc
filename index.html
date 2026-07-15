@@ -4668,6 +4668,10 @@ tog();})();
   var IMAGE_MODES={qc:1,edited:1,qc_tool:1};
   var BATCH=100, REFILL_AT=8;
   var claimedPending=[], auditActive=false;
+  var HB_MS=60000, hbTimer=null;
+  function heartbeat(){ if(!claimedPending.length) return; try{ fetch(AUDIT_URL,{method:'POST',mode:'no-cors',keepalive:true,headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'auditheartbeat',imageIds:claimedPending,reviewer:rev()})}); }catch(e){} }
+  function startHeartbeat(){ if(hbTimer) clearInterval(hbTimer); hbTimer=setInterval(heartbeat, HB_MS); }
+  function stopHeartbeat(){ if(hbTimer){ clearInterval(hbTimer); hbTimer=null; } }
   var isImg=function(m){return !!IMAGE_MODES[m];};
   var rev=function(){try{return (typeof user!=='undefined'&&user)?String(user):'reviewer';}catch(e){return 'reviewer';}};
   try{ IMG_GAS_URL=AUDIT_URL; }catch(e){}
@@ -4693,6 +4697,7 @@ tog();})();
         if(!rows.length){ if(typeof toast==='function') toast('Is tab me audit item nahi bacha'); return; }
         group.length=0; for(var k=0;k<rows.length;k++) group.push(rows[k]);
         idx=0; showReviewScreen(); showRecord();
+        startHeartbeat();
       });
     });
   };
@@ -4705,7 +4710,7 @@ tog();})();
     return _after.apply(this,arguments);
   };
   var _show=showRecord; showRecord=function(){var x=_show.apply(this,arguments); if(isImg(mode)) setQcHidden(true); return x;};
-  function releaseAll(){ if(!claimedPending.length) return; try{ navigator.sendBeacon(AUDIT_URL, JSON.stringify({action:'auditrelease',imageIds:claimedPending,reviewer:rev()})); }catch(e){} claimedPending=[]; }
+  function releaseAll(){ stopHeartbeat(); if(!claimedPending.length) return; try{ navigator.sendBeacon(AUDIT_URL, JSON.stringify({action:'auditrelease',imageIds:claimedPending,reviewer:rev()})); }catch(e){} claimedPending=[]; }
   var _exit=exitToSetup; exitToSetup=function(){releaseAll(); return _exit.apply(this,arguments);};
   var _logout=doLogout; doLogout=function(){releaseAll(); return _logout.apply(this,arguments);};
   window.addEventListener('beforeunload', releaseAll);
