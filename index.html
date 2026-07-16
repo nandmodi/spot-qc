@@ -4669,6 +4669,7 @@ tog();})();
   var IMAGE_MODES={qc:1,edited:1,qc_tool:1};
   var BATCH=100, REFILL_AT=25;
   var claimedPending=[], auditActive=false;
+  var refilling=false;
   var HB_MS=60000, hbTimer=null;
   function heartbeat(){ if(!claimedPending.length) return; try{ fetch(AUDIT_URL,{method:'POST',mode:'no-cors',keepalive:true,headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'auditheartbeat',imageIds:claimedPending,reviewer:rev()})}); }catch(e){} }
   function startHeartbeat(){ if(hbTimer) clearInterval(hbTimer); hbTimer=setInterval(heartbeat, HB_MS); }
@@ -4724,12 +4725,27 @@ tog();})();
     var dc=document.getElementById('doneCounter'); if(dc) dc.textContent='Done: '+currentDoneCount;
     function advance(){ if(idx<group.length-1){ idx++; showRecord(); } else { alert('Review Finished.'); exitToSetup(); loadData(); } }
     var remaining=group.length-idx-1;
-    if(remaining<=REFILL_AT){
-      var needAwait=(remaining<=0);
-      if(needAwait){ try{ setLoading(true); }catch(e){} }
-      fetchClaim().then(function(rows){ for(var k=0;k<rows.length;k++) group.push(rows[k]); if(needAwait){ try{ setLoading(false); }catch(e){} advance(); } });
-      if(!needAwait) advance();
-    } else { advance(); }
+    if(remaining>REFILL_AT){ advance(); return; }
+    var needAwait=(remaining<=0);
+    if(refilling){
+      // A refill is already in flight -> do NOT fire another. This guard is
+      // what stops the total jumping 200->300->400->500 when the reviewer
+      // submits fast while remaining is still <= REFILL_AT. If we've run out
+      // of loaded items, wait for the in-flight refill instead of finishing.
+      if(needAwait){
+        try{ setLoading(true); }catch(e){}
+        var _w=setInterval(function(){ if(!refilling){ clearInterval(_w); try{ setLoading(false); }catch(e){} advance(); } }, 300);
+      } else { advance(); }
+      return;
+    }
+    refilling=true;
+    if(needAwait){ try{ setLoading(true); }catch(e){} }
+    fetchClaim().then(function(rows){
+      for(var k=0;k<rows.length;k++) group.push(rows[k]);
+      refilling=false;
+      if(needAwait){ try{ setLoading(false); }catch(e){} advance(); }
+    });
+    if(!needAwait) advance();
   };
   var _show=showRecord; showRecord=function(){var x=_show.apply(this,arguments); if(isImg(mode)){ setQcHidden(true); markActivity(); } return x;};
   function releaseAll(){ stopHeartbeat(); stopIdleCheck(); if(!claimedPending.length) return; try{ navigator.sendBeacon(AUDIT_URL, JSON.stringify({action:'auditrelease',imageIds:claimedPending,reviewer:rev()})); }catch(e){} claimedPending=[]; }
