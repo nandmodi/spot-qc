@@ -4726,7 +4726,8 @@ tog();})();
     var remaining=group.length-idx-1;
     if(remaining<=REFILL_AT){
       var needAwait=(remaining<=0);
-      fetchClaim().then(function(rows){ for(var k=0;k<rows.length;k++) group.push(rows[k]); if(needAwait) advance(); });
+      if(needAwait){ try{ setLoading(true); }catch(e){} }
+      fetchClaim().then(function(rows){ for(var k=0;k<rows.length;k++) group.push(rows[k]); if(needAwait){ try{ setLoading(false); }catch(e){} advance(); } });
       if(!needAwait) advance();
     } else { advance(); }
   };
