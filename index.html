@@ -4666,12 +4666,17 @@ tog();})();
   "use strict";
   var AUDIT_URL="https://script.google.com/macros/s/AKfycbye_GzIkPXMGsVKt9-biOzUkTh-OzAdxgpuevpMRBHsEHeOYsOBMh-Q1q2mSYEmgrBp/exec";
   var IMAGE_MODES={qc:1,edited:1,qc_tool:1};
-  var BATCH=100, REFILL_AT=8;
+  var BATCH=100, REFILL_AT=25;
   var claimedPending=[], auditActive=false;
   var HB_MS=60000, hbTimer=null;
   function heartbeat(){ if(!claimedPending.length) return; try{ fetch(AUDIT_URL,{method:'POST',mode:'no-cors',keepalive:true,headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'auditheartbeat',imageIds:claimedPending,reviewer:rev()})}); }catch(e){} }
   function startHeartbeat(){ if(hbTimer) clearInterval(hbTimer); hbTimer=setInterval(heartbeat, HB_MS); }
   function stopHeartbeat(){ if(hbTimer){ clearInterval(hbTimer); hbTimer=null; } }
+  var IDLE_MS=15*60*1000, idleTimer=null, lastActivityAt=0;
+  function markActivity(){ lastActivityAt=Date.now(); }
+  function idleCheck(){ if(!claimedPending.length) return; if(Date.now()-lastActivityAt>IDLE_MS){ if(typeof toast==='function') toast('15 min se activity nahi, aapka lot release ho gaya'); releaseAll(); } }
+  function startIdleCheck(){ if(idleTimer) clearInterval(idleTimer); markActivity(); idleTimer=setInterval(idleCheck, 30000); }
+  function stopIdleCheck(){ if(idleTimer){ clearInterval(idleTimer); idleTimer=null; } }
   var isImg=function(m){return !!IMAGE_MODES[m];};
   var rev=function(){try{return (typeof user!=='undefined'&&user)?String(user):'reviewer';}catch(e){return 'reviewer';}};
   try{ IMG_GAS_URL=AUDIT_URL; }catch(e){}
@@ -4698,19 +4703,21 @@ tog();})();
         group.length=0; for(var k=0;k<rows.length;k++) group.push(rows[k]);
         idx=0; showReviewScreen(); showRecord();
         startHeartbeat();
+        startIdleCheck();
       });
     });
   };
   var _after=afterSubmitActions;
   afterSubmitActions=function(){
     if(auditActive&&isImg(mode)){
+      markActivity();
       var cur=group[idx]; if(cur){var i=claimedPending.indexOf(cur.img); if(i>=0) claimedPending.splice(i,1);}
       if(group.length-idx-1<=REFILL_AT){ fetchClaim().then(function(rows){ for(var k=0;k<rows.length;k++) group.push(rows[k]); }); }
     }
     return _after.apply(this,arguments);
   };
-  var _show=showRecord; showRecord=function(){var x=_show.apply(this,arguments); if(isImg(mode)) setQcHidden(true); return x;};
-  function releaseAll(){ stopHeartbeat(); if(!claimedPending.length) return; try{ navigator.sendBeacon(AUDIT_URL, JSON.stringify({action:'auditrelease',imageIds:claimedPending,reviewer:rev()})); }catch(e){} claimedPending=[]; }
+  var _show=showRecord; showRecord=function(){var x=_show.apply(this,arguments); if(isImg(mode)){ setQcHidden(true); markActivity(); } return x;};
+  function releaseAll(){ stopHeartbeat(); stopIdleCheck(); if(!claimedPending.length) return; try{ navigator.sendBeacon(AUDIT_URL, JSON.stringify({action:'auditrelease',imageIds:claimedPending,reviewer:rev()})); }catch(e){} claimedPending=[]; }
   var _exit=exitToSetup; exitToSetup=function(){releaseAll(); return _exit.apply(this,arguments);};
   var _logout=doLogout; doLogout=function(){releaseAll(); return _logout.apply(this,arguments);};
   window.addEventListener('beforeunload', releaseAll);
