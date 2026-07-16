@@ -2145,6 +2145,7 @@ function setMode(m){
 
   currentDoneCount = 0;
   _id('doneCounter').textContent = 'Done: …';
+  fetchProductionCount();   // independent of raw/loadData — fetch immediately, don't wait for the big CSV load
 
   exitToSetup();
   raw = []; preloadedIndices.clear();
@@ -4709,12 +4710,25 @@ tog();})();
   };
   var _after=afterSubmitActions;
   afterSubmitActions=function(){
-    if(auditActive&&isImg(mode)){
-      markActivity();
-      var cur=group[idx]; if(cur){var i=claimedPending.indexOf(cur.img); if(i>=0) claimedPending.splice(i,1);}
-      if(group.length-idx-1<=REFILL_AT){ fetchClaim().then(function(rows){ for(var k=0;k<rows.length;k++) group.push(rows[k]); }); }
-    }
-    return _after.apply(this,arguments);
+    // Audit mode fully owns advance/finish logic below — core _after() is never
+    // called for audit mode, because core decides "Review Finished" synchronously
+    // right after idx++ without knowing a background refill is in flight. That
+    // race is what caused "Record 1 of 1" -> Review Finished even though more
+    // images existed. Here we WAIT for the refill when we're on the last loaded
+    // item before deciding whether to advance or truly finish.
+    if(!(auditActive&&isImg(mode))) return _after.apply(this,arguments);
+    markActivity();
+    var cur=group[idx]; if(cur){var i=claimedPending.indexOf(cur.img); if(i>=0) claimedPending.splice(i,1);}
+    toast('Submitted!');
+    currentDoneCount++;
+    var dc=document.getElementById('doneCounter'); if(dc) dc.textContent='Done: '+currentDoneCount;
+    function advance(){ if(idx<group.length-1){ idx++; showRecord(); } else { alert('Review Finished.'); exitToSetup(); loadData(); } }
+    var remaining=group.length-idx-1;
+    if(remaining<=REFILL_AT){
+      var needAwait=(remaining<=0);
+      fetchClaim().then(function(rows){ for(var k=0;k<rows.length;k++) group.push(rows[k]); if(needAwait) advance(); });
+      if(!needAwait) advance();
+    } else { advance(); }
   };
   var _show=showRecord; showRecord=function(){var x=_show.apply(this,arguments); if(isImg(mode)){ setQcHidden(true); markActivity(); } return x;};
   function releaseAll(){ stopHeartbeat(); stopIdleCheck(); if(!claimedPending.length) return; try{ navigator.sendBeacon(AUDIT_URL, JSON.stringify({action:'auditrelease',imageIds:claimedPending,reviewer:rev()})); }catch(e){} claimedPending=[]; }
