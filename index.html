@@ -1781,6 +1781,7 @@ const AVATAR_COLORS = ['av-0','av-1','av-2','av-3','av-4','av-5','av-6'];
 
 let raw=[], group=[], idx=0, mode='qc', user='', fp360=null;
 let imagesLoaded = false, loadedCount = 0, currentDoneCount = 0;
+let submittingNow = false;   // double-submit guard
 let safetyTimer = null;
 const preloadedIndices = new Set();
 const prefetchCache = new Set();
@@ -2303,6 +2304,7 @@ function checkAllLoaded() {
 }
 
 function showRecord(){
+  submittingNow = false;
   const r = group[idx];
   imagesLoaded = false; loadedCount = 0;
   if (safetyTimer) clearTimeout(safetyTimer);
@@ -2370,6 +2372,8 @@ function showRecord(){
 
 function handleFinalSubmit() {
     if (!imagesLoaded) return;
+    if (submittingNow) return;
+    submittingNow = true;
     const r = group[idx];
     const is360 = mode === '360';
     const btn = _id('nextBtn');
@@ -2445,7 +2449,7 @@ function afterSubmitActions() {
 }
 
 function setLoading(s) { _id('loadStrip').style.display = s ? 'flex' : 'none'; }
-function exitToSetup(){ _id('reviewPage').style.display = 'none'; _id('setupPage').style.display = 'flex'; }
+function exitToSetup(){ submittingNow = false; _id('reviewPage').style.display = 'none'; _id('setupPage').style.display = 'flex'; }
 function doLogout(){ location.reload(); }
 
 const doLogin = () => {
@@ -4656,6 +4660,20 @@ try{var _s=setMode; setMode=function(){var r=_s.apply(this,arguments); try{tog()
 tog();})();
 </script>
 <!-- ===== END RE-QC AUDIT ADD-ON ===== -->
+
+<script>
+(function(){
+  if(typeof setLoading!=='function') return;
+  var _t=null,_p=0;
+  function set(show){
+    var strip=document.getElementById('loadStrip');
+    var txt=document.getElementById('loadTxt');
+    if(show){ _p=0; if(txt)txt.textContent='Loading 0%'; if(strip)strip.style.display='flex'; if(_t)clearInterval(_t); _t=setInterval(function(){ if(_p<90){ _p+=Math.max(1,Math.round((90-_p)/8)); if(txt)txt.textContent='Loading '+_p+'%'; } },200); }
+    else { if(_t){clearInterval(_t);_t=null;} _p=100; if(txt)txt.textContent='Loading 100%'; setTimeout(function(){ if(strip)strip.style.display='none'; },250); }
+  }
+  setLoading=window.setLoading=set;
+})();
+</script>
 </body>
 </html>
 
@@ -4698,9 +4716,11 @@ tog();})();
   startReview=function(){
     if(!isImg(mode)) return _start.apply(this,arguments);
     auditActive=true; claimedPending=[]; hideFilters(); setQcHidden(true);
+    try{ setLoading(true); }catch(e){}
     try{ if(!raw||raw.length===0) loadData(); }catch(e){}
     waitRaw(function(){
       fetchClaim().then(function(rows){
+        try{ setLoading(false); }catch(e){}
         if(!rows.length){ if(typeof toast==='function') toast('Is tab me audit item nahi bacha'); return; }
         group.length=0; for(var k=0;k<rows.length;k++) group.push(rows[k]);
         idx=0; showReviewScreen(); showRecord();
