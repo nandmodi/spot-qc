@@ -4710,6 +4710,21 @@ tog();})();
     var rows=[]; r.claimed.forEach(function(c){var row=byImg[c.image_id]; if(row){rows.push(row); claimedPending.push(c.image_id);}});
     return rows;
   }
+  // Self-heal: if a refill returns 0 rows, the local raw CSV snapshot may be
+  // stale relative to the server pool (pool regenerates independently of the
+  // client's one-time-per-session raw load). Refresh raw once and retry
+  // before giving up — this is what previously caused a false
+  // "Review Finished" alert when more images actually existed server-side.
+  var _fetchClaimOrig = fetchClaim;
+  fetchClaim = async function () {
+    var rows = await _fetchClaimOrig();
+    if (rows.length === 0) {
+      try { await loadData(); } catch (e) {}
+      try { rows = await _fetchClaimOrig(); } catch (e) {}
+    }
+    return rows;
+  };
+
   function waitRaw(cb,t){t=t||0; if(typeof raw!=='undefined'&&raw&&raw.length>0){cb();return;} if(t>30){cb();return;} setTimeout(function(){waitRaw(cb,t+1);},300);}
   function showReviewScreen(){var sp=document.getElementById('setupPage'),rp=document.getElementById('reviewPage'); if(sp)sp.style.display='none'; if(rp)rp.style.display='flex';}
   var _start=startReview;
