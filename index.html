@@ -1904,7 +1904,7 @@ async function fetchProductionCount() {
         });
         
         if (is360 === (mode === '360')) {
-          currentDoneCount = filteredEntries.length;
+          currentDoneCount = Math.max(currentDoneCount, filteredEntries.length);
           _id('doneCounter').textContent = `Done: ${currentDoneCount}`;
         }
       }
@@ -2328,7 +2328,7 @@ function showRecord(){
   _id('mEditorWrap').classList.toggle('hidden', !r.editor || mode === 'qc');
   _id('mIssue').textContent = r.issue;
   _id('mIssueWrap').classList.toggle('hidden', !r.issue);
-  _id('progLbl').textContent = `Record ${idx+1} of ${group.length}`;
+  _id('progLbl').textContent = `Record ${idx+1}`;
   _id('progFill').style.width = ((idx+1)/group.length*100) + '%';
 
   if (is360) {
