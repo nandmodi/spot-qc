@@ -1,0 +1,1725 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spot QC Dashboard</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg: #0f1117;
+  --surface: #1a1d27;
+  --surface2: #222636;
+  --border: #2e3348;
+  --accent: #6c63ff;
+  --accent2: #00d4aa;
+  --warn: #f59e0b;
+  --danger: #ef4444;
+  --text: #e2e8f0;
+  --muted: #8892a4;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Inter', sans-serif;
+}
+
+body.light-mode {
+  --bg: #f0f2f8;
+  --surface: #ffffff;
+  --surface2: #f4f5fb;
+  --border: #dde1f0;
+  --accent: #6c63ff;
+  --accent2: #00b896;
+  --warn: #d97706;
+  --danger: #dc2626;
+  --text: #1a1d2e;
+  --muted: #6b7280;
+}
+body.light-mode .filter-group select option { background: #ffffff; }
+body { transition: background .25s, color .25s; }
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {font-family: var(--sans);background: var(--bg);color: var(--text);min-height: 100vh;}
+
+/* ── HEADER ── */header {background: var(--surface);border-bottom: 1px solid var(--border);padding: 0 28px;display: flex;align-items: center;justify-content: space-between;height: 60px;position: sticky;top: 0;z-index: 100;}.logo {display: flex;align-items: center;gap: 10px;font-weight: 700;font-size: 1rem;letter-spacing: -0.02em;}.logo-dot {width: 8px; height: 8px;border-radius: 50%;background: var(--accent2);box-shadow: 0 0 8px var(--accent2);}.header-right {display: flex;align-items: center;gap: 12px;}#lastRefresh {font-size: 0.72rem;color: var(--muted);font-family: var(--mono);}.btn-refresh {background: var(--accent);color: #fff;border: none;padding: 7px 16px;border-radius: 6px;font-size: 0.8rem;font-weight: 600;cursor: pointer;display: flex;align-items: center;gap: 6px;transition: opacity .15s;}.btn-refresh { opacity: .85; }.btn-refresh svg { width: 14px; height: 14px; }
+
+/* ── MAIN ── */main { padding: 24px 28px; width: 100%; max-width: none; margin: 0 auto; }
+
+/* ── FILTERS ── */.filters {background: var(--surface);border: 1px solid var(--border);border-radius: 12px;padding: 18px 20px;display: flex;flex-wrap: wrap;gap: 14px;align-items: flex-end;margin-bottom: 24px;}.filter-group { display: flex; flex-direction: column; gap: 5px; min-width: 170px; flex: 1; }.filter-group label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-weight: 600; }.filter-group select,.filter-group input[type="date"] {background: var(--surface2);border: 1px solid var(--border);color: var(--text);border-radius: 7px;padding: 8px 10px;font-size: 0.82rem;font-family: var(--sans);outline: none;transition: border-color .15s;}.filter-group select,.filter-group input[type="date"] { border-color: var(--accent); }.filter-group select option { background: #1a1d27; }.btn-clear {background: transparent;border: 1px solid var(--border);color: var(--muted);padding: 8px 16px;border-radius: 7px;font-size: 0.8rem;cursor: pointer;font-family: var(--sans);transition: color .15s, border-color .15s;height: 36px;}.btn-clear { color: var(--text); border-color: var(--accent); }
+
+/* ── STAT CARDS ── */.stats-grid {display: grid;grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));gap: 16px;margin-bottom: 24px;}.stat-card {background: var(--surface);border: 1px solid var(--border);border-radius: 12px;padding: 18px 20px;position: relative;overflow: hidden;}.stat-card::before {content: '';position: absolute;top: 0; left: 0; right: 0;height: 3px;}.stat-card.c-accent::before { background: var(--accent); }.stat-card.c-green::before { background: var(--accent2); }.stat-card.c-warn::before { background: var(--warn); }.stat-card.c-danger::before { background: var(--danger); }.stat-card.c-purple::before { background: #a78bfa; }
+
+.stat-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-weight: 600; margin-bottom: 8px; }.stat-value { font-size: 2rem; font-weight: 700; letter-spacing: -0.03em; line-height: 1; }.stat-sub { font-size: 0.72rem; color: var(--muted); margin-top: 6px; font-family: var(--mono); }
+
+/* ── TABLES SECTION ── */.section-title {font-size: 0.8rem;text-transform: uppercase;letter-spacing: .1em;color: var(--muted);font-weight: 600;margin-bottom: 12px;margin-top: 28px;}
+
+.tables-row {display: grid;grid-template-columns: 1fr 1fr;gap: 16px;margin-bottom: 24px;}@media (max-width: 860px) { .tables-row { grid-template-columns: 1fr; } }
+
+.table-card {background: var(--surface);border: 1px solid var(--border);border-radius: 12px;overflow: hidden;}.table-card-header {padding: 14px 18px;border-bottom: 1px solid var(--border);font-size: 0.82rem;font-weight: 600;color: var(--text);}.table-scroll { overflow-x: auto; }table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }thead th {background: var(--surface2);padding: 10px 14px;text-align: left;font-size: 0.68rem;text-transform: uppercase;letter-spacing: .08em;color: var(--muted);font-weight: 600;white-space: nowrap;}
+
+.btn-trend-link { background:transparent;border:1px solid var(--accent);color:var(--accent);font-size:0.65rem;padding:4px 11px;border-radius:20px;cursor:pointer;font-weight:600;font-family:var(--sans);white-space:nowrap;flex-shrink:0;transition:background .15s; }
+.btn-trend-link:hover { background:rgba(108,99,255,.12); }
+.toggle-pill { display:inline-flex;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px;flex-shrink:0; }
+.toggle-pill button { border:none;background:transparent;color:var(--muted);padding:6px 14px;border-radius:20px;font-size:0.75rem;font-weight:600;cursor:pointer;font-family:var(--sans);display:flex;align-items:center;gap:6px;transition:background .15s,color .15s; }
+.toggle-pill button.active { background:var(--accent);color:#fff; }
+th.sortable { cursor: pointer; user-select: none; }
+th.sortable:hover { color: var(--text); }
+th.sortable .arrow { display: inline-block; margin-left: 4px; opacity: .4; font-size: .65rem; }
+th.sortable.sort-active .arrow { opacity: 1; color: var(--accent); }tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }tbody tr { border-bottom: none; }tbody tr { background: var(--surface2); }tbody td { padding: 10px 14px; color: var(--text); vertical-align: middle; }td.mono { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); }td.email { font-size: 0.74rem; color: var(--accent2); font-family: var(--mono); word-break: break-all; }
+
+/* status pill */.pill {display: inline-block;padding: 2px 9px;border-radius: 20px;font-size: 0.68rem;font-weight: 600;letter-spacing: .03em;}.pill-done { background: rgba(0,212,170,.15); color: var(--accent2); }.pill-other { background: rgba(239,68,68,.12); color: var(--danger); }
+
+/* bar */.bar-wrap { display: flex; align-items: center; gap: 8px; }.bar { height: 6px; border-radius: 3px; background: var(--accent); min-width: 2px; transition: width .3s; }.bar-val { font-size: 0.75rem; color: var(--muted); font-family: var(--mono); white-space: nowrap; }
+
+/* ── MAIN DATA TABLE ── */.main-table-card {background: var(--surface);border: 1px solid var(--border);border-radius: 12px;overflow: hidden;margin-bottom: 28px;}.main-table-header {padding: 14px 18px;border-bottom: 1px solid var(--border);display: flex;align-items: center;justify-content: space-between;}.main-table-header span { font-size: 0.82rem; font-weight: 600; }#rowCount { font-size: 0.72rem; color: var(--muted); font-family: var(--mono); }.main-table-scroll { overflow-x: auto; max-height: 480px; overflow-y: auto; }.main-table-scroll thead th { position: sticky; top: 0; z-index: 2; }
+
+/* ── DRILL-DOWN ── */
+.drill-row { display: none; }
+.drill-row.visible { display: table-row; }
+.btn-drilldown {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; padding: 9px 0; background: var(--surface2);
+  border: none; border-top: 1px solid var(--border);
+  color: var(--accent); font-size: 0.75rem; font-weight: 600;
+  cursor: pointer; font-family: var(--sans); letter-spacing: .03em;
+  transition: background .15s, color .15s;
+}
+.btn-drilldown:hover { background: rgba(108,99,255,.1); }
+.btn-drilldown svg { transition: transform .25s; }
+.btn-drilldown.expanded svg { transform: rotate(180deg); }
+.drill-count-badge {
+  background: var(--accent); color: #fff;
+  border-radius: 20px; padding: 1px 7px; font-size: 0.68rem; font-weight: 700;
+}
+
+/* ── QC MATRIX (date-wise) ── */
+.qc-matrix { border-collapse: separate; border-spacing: 0; }
+.qc-matrix th, .qc-matrix td { white-space: nowrap; }
+.qc-matrix th.sticky-col, .qc-matrix td.sticky-col {
+  position: sticky; left: 0; background: var(--surface2); z-index: 1;
+}
+.qc-matrix thead th { position: sticky; top: 0; z-index: 2; }
+.qc-matrix thead th.sticky-col { z-index: 3; }
+.qc-matrix td.zero { color: var(--danger); font-weight: 700; text-align: center; }
+.qc-matrix td.num { font-family: var(--mono); font-size: 0.75rem; }
+.qc-matrix tr.total-row td { font-weight: 700; border-top: 1px solid var(--border); }
+
+/* loading / error */.loader {display: flex;align-items: center;justify-content: center;padding: 60px;gap: 14px;color: var(--muted);font-size: 0.85rem;}.spinner {width: 20px; height: 20px;border: 2px solid var(--border);border-top-color: var(--accent);border-radius: 50%;animation: spin .7s linear infinite;}@keyframes spin { to { transform: rotate(360deg); } }.error-msg { color: var(--danger); text-align: center; padding: 40px; font-size: .85rem; }
+
+/* pagination */.pagination {display: flex;align-items: center;justify-content: flex-end;gap: 8px;padding: 12px 18px;border-top: 1px solid var(--border);}.btn-page {background: var(--surface2);border: 1px solid var(--border);color: var(--text);padding: 5px 12px;border-radius: 6px;font-size: 0.78rem;cursor: pointer;font-family: var(--sans);transition: border-color .15s;}.btn-page:hover() { border-color: var(--accent); }.btn-page { opacity: .3; cursor: default; }.page-info { font-size: 0.75rem; color: var(--muted); font-family: var(--mono); }
+
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <img src="images (1).png" alt="Spyne Logo" style="width:48px;height:48px;object-fit:contain;"/>
+    <div>
+      <div style="font-weight:700;font-size:1rem;letter-spacing:-.02em;line-height:1.1;">Spyne</div>
+      <div style="font-size:0.68rem;color:var(--muted);font-weight:400;letter-spacing:.02em;">Spot Qc Dashboard</div>
+    </div>
+</div>
+  </div>
+  <div class="header-right">
+    <!-- Date range chip (mirrors active filter) -->
+    <div id="headerDateChip" style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 12px;font-size:0.75rem;font-family:var(--mono);color:var(--muted);">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <span id="headerDateText">Last 30 days</span>
+    </div>
+    <span id="lastRefresh" style="font-size:0.72rem;color:var(--muted);font-family:var(--mono);">Not yet loaded</span>
+    <button class="btn-refresh" onclick="loadData(true)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+        <path d="M3 3v5h5"/>
+      </svg>
+      Refresh
+    </button>
+    <!-- Theme toggle -->
+    <button id="themeToggle" onclick="toggleTheme()" title="Toggle light/dark mode" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);width:34px;height:34px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s,border-color .15s;flex-shrink:0;">
+      <svg id="themeIconDark" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg id="themeIconLight" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+  </div>
+</header>
+
+<main>
+  <!-- FILTERS -->
+  <div class="filters">
+    <div class="filter-group" style="min-width:130px;flex:0 0 140px;">
+      <label>Product</label>
+      <select id="filterProduct" onchange="switchProduct()">
+        <option value="images">Images</option>
+        <option value="360">360-Spin</option>
+      </select>
+    </div>
+    <div class="filter-group" style="min-width:200px;position:relative;">
+      <label>Date Range</label>
+      <button id="dateRangeBtn" onclick="toggleDatePicker(event)" style="
+        background:var(--surface2);border:1px solid var(--accent);color:var(--text);
+        border-radius:7px;padding:8px 12px;font-size:0.82rem;font-family:var(--sans);
+        cursor:pointer;display:flex;align-items:center;gap:8px;width:100%;text-align:left;
+        outline:none;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span id="dateRangeLabel">Last 30 days</span>
+      </button>
+      <!-- hidden date range picker panel -->
+      <div id="datePickerPanel" style="display:none;position:fixed;z-index:9999;background:var(--surface2);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,.55);min-width:540px;" onclick="event.stopPropagation()">
+        <div style="display:flex;">
+          <!-- LEFT: quick select -->
+          <div style="width:190px;border-right:1px solid var(--border);padding:14px 0;">
+            <div style="font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-weight:700;padding:0 18px 8px;">Quick Select</div>
+            <div id="quickList"></div>
+            <div style="font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-weight:700;padding:14px 18px 8px;">Months</div>
+            <div id="monthList"></div>
+            <div style="height:1px;background:var(--border);margin:10px 0;"></div>
+            <div id="extraList"></div>
+          </div>
+          <!-- RIGHT: calendar + custom -->
+          <div style="padding:18px 20px;flex:1;">
+            <div style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:12px;">Custom Date Range</div>
+            <div style="font-size:0.75rem;color:var(--muted);margin-bottom:12px;">Click a start date, then click an end date.</div>
+            <!-- Month nav -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+              <button onclick="calNav(-1)" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;">‹</button>
+              <span id="calMonthLabel" style="font-weight:600;font-size:0.9rem;color:var(--text);"></span>
+              <button onclick="calNav(1)" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;">›</button>
+            </div>
+            <!-- Day-of-week headers -->
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);text-align:center;margin-bottom:4px;">
+              <span style="font-size:.65rem;color:var(--muted);font-weight:700;">SU</span>
+              <span style="font-size:.65rem;color:var(--muted);font-weight:700;">MO</span>
+              <span style="font-size:.65rem;color:var(--muted);font-weight:700;">TU</span>
+              <span style="font-size:.65rem;color:var(--muted);font-weight:700;">WE</span>
+              <span style="font-size:.65rem;color:var(--muted);font-weight:700;">TH</span>
+              <span style="font-size:.65rem;color:var(--muted);font-weight:700;">FR</span>
+              <span style="font-size:.65rem;color:var(--muted);font-weight:700;">SA</span>
+            </div>
+            <div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;"></div>
+            <!-- Range display + actions -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+              <span id="calRangeText" style="font-size:0.75rem;color:var(--muted);font-family:var(--mono);"></span>
+              <div style="display:flex;gap:8px;">
+                <button onclick="cancelDatePicker()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 16px;border-radius:7px;font-size:0.8rem;cursor:pointer;font-family:var(--sans);">Cancel</button>
+                <button onclick="applyCustomRange()" style="background:var(--accent);color:#fff;border:none;padding:6px 16px;border-radius:7px;font-size:0.8rem;cursor:pointer;font-family:var(--sans);font-weight:600;">Apply</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- hidden real date inputs still used by applyFilters() -->
+    <input type="hidden" id="dateFrom" />
+    <input type="hidden" id="dateTo" />
+    <div class="filter-group">
+      <label>Login User</label>
+      <select id="filterLogin" onchange="applyFilters()">
+        <option value="">All Users</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>QC User Email</label>
+      <select id="filterQC" onchange="applyFilters()">
+        <option value="">All QC Users</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Editing User</label>
+      <select id="filterEditing" onchange="applyFilters()">
+        <option value="">All Editors</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Submit Issue Status</label>
+      <select id="filterStatus" onchange="applyFilters()">
+        <option value="">All Statuses</option>
+      </select>
+    </div>
+    <button class="btn-clear" onclick="clearFilters()">Clear</button>
+  </div>
+
+  <!-- STAT CARDS -->
+
+  <div class="stats-grid">
+    <div class="stat-card c-accent" onclick="openTrendModal('totalImages')" style="cursor:pointer;" title="Click to view month-wise trend">
+      <div class="stat-label">Total Images</div>
+      <div class="stat-value" id="statTotal">—</div>
+      <div class="stat-sub">in filtered range · click for trend</div>
+    </div>
+    <div class="stat-card c-green" onclick="openTrendModal('submitCount')" style="cursor:pointer;" title="Click to view month-wise trend">
+      <div class="stat-label">Submit Issues (Count)</div>
+      <div class="stat-value" id="statSubmitCount">—</div>
+      <div class="stat-sub">rows with issue reported · click for trend</div>
+    </div>
+    <div class="stat-card c-warn" onclick="openTrendModal('avgDay')" style="cursor:pointer;" title="Click to view month-wise trend">
+      <div class="stat-label">Submit Issue (Avg/Day)</div>
+      <div class="stat-value" id="statAvgDay">—</div>
+      <div class="stat-sub">avg issues per active day · click for trend</div>
+    </div>
+    <div class="stat-card c-danger" id="issueRateCard" onclick="openTrendModal('overall')" style="cursor:pointer;" title="Click to view month-wise trend">
+      <div class="stat-label">Overall Issue Rate</div>
+      <div class="stat-value" id="statIssueRate">—</div>
+      <div class="stat-sub">% images with an open issue · click for trend</div>
+    </div>
+    <div class="stat-card c-danger" onclick="openTrendModal('nonDone')" style="cursor:pointer;" title="Click to view month-wise trend">
+      <div class="stat-label">Non-Done Issues</div>
+      <div class="stat-value" id="statNonDone">—</div>
+      <div class="stat-sub">need attention · click for trend</div>
+    </div>
+  </div>
+
+  <!-- BREAKDOWN TABLES -->
+
+  <div class="section-title">Breakdown</div>
+  <div class="tables-row">
+
+<div class="table-card">
+  <div class="table-card-header">By Login User</div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr>
+        <th class="sortable" id="th-login-key" onclick="setSort('loginUser','key')">Login User<span class="arrow"></span></th>
+        <th class="sortable" id="th-login-total" onclick="setSort('loginUser','total')">Images<span class="arrow"></span></th>
+        <th class="sortable" id="th-login-issues" onclick="setSort('loginUser','issues')">Issues<span class="arrow"></span></th>
+        <th class="sortable" id="th-login-rate" onclick="setSort('loginUser','rate')">Issue Rate<span class="arrow"></span></th>
+        <th class="sortable" id="th-login-done" onclick="setSort('loginUser','done')">Done<span class="arrow"></span></th>
+      </tr></thead>
+      <tbody id="tableLoginUser"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="table-card">
+  <div class="table-card-header" style="display:flex;align-items:center;justify-content:space-between;">
+    <span>By QC User</span>
+    <span style="font-size:0.65rem;color:var(--muted);font-weight:400;">click a row for enterprise breakdown</span>
+  </div>
+  <div class="table-scroll" style="max-height:320px;overflow-y:auto;">
+    <table>
+      <thead style="position:sticky;top:0;z-index:2;"><tr>
+        <th class="sortable" id="th-qc-key" onclick="setSort('qcUser','key')">QC User<span class="arrow"></span></th>
+        <th class="sortable" id="th-qc-total" onclick="setSort('qcUser','total')">Images<span class="arrow"></span></th>
+        <th class="sortable" id="th-qc-issues" onclick="setSort('qcUser','issues')">Issues<span class="arrow"></span></th>
+        <th class="sortable" id="th-qc-rate" onclick="setSort('qcUser','rate')">Issue Rate<span class="arrow"></span></th>
+      </tr></thead>
+      <tbody id="tableQCUser"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="table-card" style="grid-column: 1 / -1;">
+  <div class="table-card-header" style="display:flex;align-items:center;justify-content:space-between;">
+    <span>QC'd Images per User (Date-wise)</span>
+    <span id="qcCountUsers" style="font-size:0.65rem;color:var(--muted);font-weight:400;">—</span>
+  </div>
+  <div class="table-scroll" id="qcMatrixWrap" style="max-height:520px;overflow:auto;"></div>
+</div>
+
+<div class="table-card">
+  <div class="table-card-header">Top 10 QC Users (Highest Submit Issues)</div>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th class="sortable" id="th-topqc-key" onclick="setSort('topQC','key')">QC User<span class="arrow"></span></th>
+          <th class="sortable" id="th-topqc-count" onclick="setSort('topQC','count')">Submit Issues<span class="arrow"></span></th>
+          <th class="sortable" id="th-topqc-rate" onclick="setSort('topQC','rate')">Issue Rate<span class="arrow"></span></th>
+        </tr>
+      </thead>
+      <tbody id="tableTopQC"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="table-card">
+  <div class="table-card-header" style="display:flex;align-items:center;justify-content:space-between;">
+    <span>Top 10 Enterprises (Highest Submit Issues)</span>
+    <span style="font-size:0.65rem;color:var(--muted);font-weight:400;">click a row for issue-category breakdown</span>
+  </div>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th class="sortable" id="th-ent-key" onclick="setSort('topEnterprise','key')">Enterprise<span class="arrow"></span></th>
+          <th class="sortable" id="th-ent-issues" onclick="setSort('topEnterprise','issues')">Submit Issues<span class="arrow"></span></th>
+          <th class="sortable" id="th-ent-total" onclick="setSort('topEnterprise','total')">Total Images<span class="arrow"></span></th>
+          <th class="sortable" id="th-ent-rate" onclick="setSort('topEnterprise','rate')">Issue Rate<span class="arrow"></span></th>
+        </tr>
+      </thead>
+      <tbody id="tableTopEnterprise"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="table-card">
+  <div class="table-card-header">By Submit Issue Status</div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr>
+        <th class="sortable" id="th-status-key" onclick="setSort('status','key')">Status<span class="arrow"></span></th>
+        <th class="sortable" id="th-status-count" onclick="setSort('status','count')">Count<span class="arrow"></span></th>
+        <th class="sortable" id="th-status-share" onclick="setSort('status','share')">% Share<span class="arrow"></span></th>
+      </tr></thead>
+      <tbody id="tableStatus"></tbody>
+    </table>
+  </div>
+</div>
+
+  </div>
+</main>
+
+<!-- TREND MODAL (generic — used by all 5 stat cards) -->
+<div id="issueRateModalOverlay" onclick="if(event.target===this) closeTrendModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(880px,92vw);max-height:88vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.5);">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+      <span id="trendModalTitle" style="font-weight:600;font-size:0.9rem;">Overall Issue Rate — Monthly Trend</span>
+      <button onclick="closeTrendModal()" style="background:transparent;border:none;color:var(--muted);font-size:1.3rem;line-height:1;cursor:pointer;padding:4px 8px;">&times;</button>
+    </div>
+    <div style="padding:20px;">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:12px;margin-bottom:16px;">
+        <div class="toggle-pill" id="trendRangeToggle">
+          <button id="trendRange3m" onclick="setTrendRange('3m')">Last 3 Months</button>
+          <button id="trendRangeAll" onclick="setTrendRange('all')">All Time</button>
+        </div>
+        <div class="toggle-pill" id="trendTypeToggle">
+          <button id="trendTypeCurve" onclick="setTrendChartType('curve')">〜 Curve</button>
+          <button id="trendTypeBar" onclick="setTrendChartType('bar')">▮ Bar</button>
+        </div>
+      </div>
+      <div id="trendModalDesc" style="font-size:0.72rem;color:var(--muted);margin-bottom:14px;"></div>
+      <canvas id="issueRateTrendChart" height="110" style="display:none;"></canvas>
+      <div id="issueRateTrendEmpty" style="text-align:center;color:var(--muted);font-size:0.82rem;padding:50px 0;">No data available for the current filters.</div>
+    </div>
+  </div>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+  // ── CONFIG ──────────────────────────────────────────────────────────
+  // Two PRODUCTS, selectable via the Product filter:
+  //
+  // IMAGES — data from TWO sources, split by date (logic unchanged):
+  //   • Form Responses 2    (sheet 1, gid=2128295653) → up to AND INCLUDING 9-Jul-2026
+  //   • Spot QC - Responce  (sheet 2, gid=1092667553) → from 9-Jul-2026 onwards
+  //   Both may contain 9-Jul rows; overlap is deduplicated by image_id after merging.
+  //
+  // 360-SPIN — single source:
+  //   • 360-Responses       (sheet 2, gid=1075238960) → all rows
+  const PUB_BASE_1 =
+    'https://docs.google.com/spreadsheets/d/e/2PACX-1vSWW7muoNyeY_1VOLhybuT7ChNHtkhAscxDikyiCPQChIWqi1m3KXsd9e0_i_UFE7bDrW_7kfH-vIhL/pub?single=true&output=csv&gid=';
+  const PUB_BASE_2 =
+    'https://docs.google.com/spreadsheets/d/e/2PACX-1vSXAlw0cMgT7fInzBKH1xJcfL67Ev9Fq0cyUwpg9WJc4OYtn-P6iRsBi8Xqmdzib8MRwNLtPsS0X2Qx/pub?single=true&output=csv&gid=';
+
+  // Column maps (0-indexed sheet columns → row fields).
+  // IMAGES sheets (both share the same layout):
+  //   0:Timestamp 1:Enterprise 2:QC User 3:Editing User 4:SKU_ID
+  //   5:Image_ID 6:Issue 7:Input Image 8:AI Image 9:Final Image
+  //   10:Submit Issue 11:Login User
+  const MAP_STANDARD = { timestamp:0, enterprise:1, qcUser:2, editUser:3, skuId:4,
+                         imageId:5, issue:6, inputImg:7, aiImg:8, finalImg:9,
+                         submitIssue:10, loginUser:11 };
+  // 360-RESPONSES layout:
+  //   0:Timestamp 1:SKU_ID 2:Spin_ID 3:Issues 4:Enterprise 5:User(QC)
+  //   6:spin_url 7:Reason(=Submit Issue) 8:Date(ignored) 9:QC By(=Login User)
+  //   Timestamp (col A) drives the date filter. No Editing User for 360.
+  const MAP_360 = { timestamp:0, skuId:1, imageId:2, issue:3, enterprise:4,
+                    qcUser:5, inputImg:6, submitIssue:7, loginUser:9 };
+
+  // Each source keeps only rows inside its [from, to) date window (null = open).
+  const SOURCES_BY_PRODUCT = {
+    images: [
+      {
+        name: 'Form Responses 2',
+        url:  PUB_BASE_1 + '2128295653',
+        map:  MAP_STANDARD,
+        from: null,
+        to:   new Date(2026, 6, 10)   // rows before 10-Jul-2026 (i.e. through 9-Jul)
+      },
+      {
+        name: 'Spot QC - Responce (new sheet)',
+        url:  PUB_BASE_2 + '1092667553',
+        map:  MAP_STANDARD,
+        from: new Date(2026, 6, 9),   // 9-Jul-2026 onwards
+        to:   null
+      }
+    ],
+    '360': [
+      {
+        name: '360-Responses',
+        url:  PUB_BASE_2 + '1075238960',
+        map:  MAP_360,
+        from: null,
+        to:   null
+      }
+    ]
+  };
+  const PAGE_SIZE = 50;
+
+  // ── STATE ────────────────────────────────────────────────────────────
+  let allRows      = [];   // parsed from CSV, objects
+  let filteredRows = [];
+  let currentPage  = 1;
+  let currentProduct = 'images';
+  const productCache = {};   // product → merged rows (so switching is instant)
+
+  function switchProduct() {
+    // reset value-filters since options differ per product
+    ['filterLogin','filterQC','filterEditing','filterStatus'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    loadData();
+  }
+
+  // ── LOAD ─────────────────────────────────────────────────────────────
+  function setStatus(html) {
+    const tc = document.getElementById('tableContainer');   // legacy (removed section)
+    if (tc) tc.innerHTML = html;
+  }
+
+  async function loadData(force = false) {
+    currentProduct = document.getElementById('filterProduct')?.value || 'images';
+
+    // serve from cache on product switch (Refresh button forces a refetch)
+    if (!force && productCache[currentProduct]) {
+      allRows = productCache[currentProduct];
+      populateFilters();
+      applyFilters();
+      return;
+    }
+
+    document.getElementById('lastRefresh').textContent = 'Loading…';
+    setStatus('<div class="loader"><div class="spinner"></div> Fetching live data…</div>');
+    const pg = document.getElementById('pagination');
+    if (pg) pg.style.display = 'none';
+
+    try {
+      const SOURCES = SOURCES_BY_PRODUCT[currentProduct];
+      const results = await Promise.all(SOURCES.map(async (src) => {
+        const res = await fetch(src.url);
+        if (!res.ok) {
+          throw new Error(`HTTP Error ${res.status} (${src.name})`);
+        }
+        const text = await res.text();
+        if (!text || text.trim().length === 0) {
+          throw new Error(`CSV is empty (${src.name})`);
+        }
+        const rows = parseCSV(text, src.map);
+        // Keep only rows inside this source's date window.
+        // Rows with unparseable dates are kept.
+        return rows.filter(r => {
+          if (!r._date) return true;
+          if (src.from && r._date < src.from) return false;
+          if (src.to   && r._date >= src.to)  return false;
+          return true;
+        });
+      }));
+
+      // Dedup: same record present in both tabs (9-Jul overlap) counted once.
+      // Key = image_id when available, else timestamp+sku_id.
+      const seen = new Set();
+      allRows = results.flat().filter(r => {
+        const key = (r.imageId && r.imageId.trim())
+          ? 'img:' + r.imageId.trim()
+          : 'ts:' + r.timestamp + '|' + r.skuId;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      // keep merged data chronologically sorted (nulls last)
+      allRows.sort((a, b) => {
+        if (!a._date) return 1;
+        if (!b._date) return -1;
+        return a._date - b._date;
+      });
+
+      productCache[currentProduct] = allRows;
+
+      document.getElementById('lastRefresh').textContent =
+        'Updated ' + new Date().toLocaleTimeString();
+      populateFilters();
+      applyFilters();
+    } catch (e) {
+      document.getElementById('lastRefresh').textContent = '⚠ Load failed: ' + e.message;
+      setStatus(`<div class="error-msg">⚠ Could not load data.<br><small>${e.message}</small></div>`);
+    }
+  }
+
+  // ── CSV PARSER ────────────────────────────────────────────────────────
+  // Quote-aware: handles commas AND newlines inside quoted cells (e.g. the
+  // multi-line "Issues" column in 360-Responses) plus escaped "" quotes.
+  function parseCSVText(text) {
+    const records = [];
+    let row = [], cur = '', inQ = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (inQ) {
+        if (c === '"') {
+          if (text[i + 1] === '"') { cur += '"'; i++; }  // escaped quote
+          else inQ = false;
+        } else cur += c;                                  // keeps \n inside quotes
+      } else {
+        if (c === '"') inQ = true;
+        else if (c === ',') { row.push(cur); cur = ''; }
+        else if (c === '\n' || c === '\r') {
+          if (c === '\r' && text[i + 1] === '\n') i++;
+          row.push(cur); cur = '';
+          records.push(row); row = [];
+        } else cur += c;
+      }
+    }
+    if (cur !== '' || row.length) { row.push(cur); records.push(row); }
+    return records;
+  }
+
+  function parseCSV(text, map) {
+    const records = parseCSVText(text);
+    if (!records.length) return [];
+    const rows = [];
+    for (let i = 1; i < records.length; i++) {      // skip header row
+      const cols = records[i].map(c => c.trim());
+      if (cols.length < 2) continue;                // empty/padding record
+      const ts = cols[map.timestamp] || '';
+      if (!ts) continue;                            // skip blank rows
+      rows.push({
+        timestamp:   ts,
+        enterprise:  cols[map.enterprise]  || '',
+        qcUser:      cols[map.qcUser]      || '',
+        editUser:    cols[map.editUser]    || '',
+        skuId:       cols[map.skuId]       || '',
+        imageId:     cols[map.imageId]     || '',
+        // collapse in-cell newlines for clean display ("A: Blocker | B: Low")
+        issue:       (cols[map.issue] || '').replace(/\s*\n\s*/g, ' | '),
+        inputImg:    cols[map.inputImg]    || '',
+        aiImg:       cols[map.aiImg]       || '',
+        finalImg:    cols[map.finalImg]    || '',
+        submitIssue: cols[map.submitIssue] || '',
+        loginUser:   cols[map.loginUser]   || '',
+        _date:       parseDate(ts),
+      });
+    }
+    return rows;
+  }
+
+  function parseDate(str) {
+    // Returns a Date object at LOCAL midnight for the date portion only.
+    // This avoids timezone-shift bugs when comparing with date-picker values.
+    if (!str) return null;
+    str = str.trim();
+
+    const months = { jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11 };
+
+    // Format: "14-Apr-2026" or "14-Apr-2026 10:30:00"
+    const m1 = str.match(/^(\d{1,2})-([A-Za-z]+)-(\d{4})/);
+    if (m1) {
+      return new Date(+m1[3], months[m1[2].toLowerCase().slice(0,3)], +m1[1]);
+    }
+
+    // Format: "6/29/2026 14:30:00" or "6/29/2026" (Google Sheets default export)
+    const m2 = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (m2) {
+      return new Date(+m2[3], +m2[1] - 1, +m2[2]); // month, day, year — local midnight
+    }
+
+    // Format: "2026-06-29" or "2026-06-29T14:30:00"
+    const m3 = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m3) {
+      return new Date(+m3[1], +m3[2] - 1, +m3[3]); // local midnight, avoids UTC offset
+    }
+
+    return null; // unknown format
+  }
+
+  function fmt(d) {
+    // Use local date parts to avoid UTC/IST shift when grouping by day
+    if (!d) return '';
+    const yy = d.getFullYear();
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
+    return yy+'-'+mm+'-'+dd;
+  }
+
+  // ── FILTERS ──────────────────────────────────────────────────────────
+  function populateFilters() {
+    const unique = (key) => [...new Set(allRows.map(r => r[key]).filter(Boolean))].sort();
+
+    fill('filterLogin',   unique('loginUser'));
+    fill('filterQC',      unique('qcUser'));
+    fill('filterEditing', unique('editUser'));
+    fill('filterStatus',  unique('submitIssue'));
+
+    // date range defaults are handled by the date picker widget
+  }
+
+  function fill(id, values) {
+    const sel = document.getElementById(id);
+    const cur = sel.value;
+    sel.innerHTML = sel.options[0].outerHTML; // keep first "All" option
+    values.forEach(v => {
+      const o = document.createElement('option');
+      o.value = v; o.textContent = v;
+      sel.appendChild(o);
+    });
+    if (cur) sel.value = cur;
+  }
+
+  function clearFilters() {
+    document.getElementById('dateFrom').value    = '';
+    document.getElementById('dateTo').value      = '';
+    document.getElementById('dateRangeLabel').textContent = 'All time';
+    activePreset = 'All time';
+    document.getElementById('filterLogin').value = '';
+    document.getElementById('filterQC').value    = '';
+    document.getElementById('filterEditing').value = '';
+    document.getElementById('filterStatus').value  = '';
+    populateFilters();
+    applyFilters();
+  }
+
+  function applyFilters() {
+    const fromVal   = document.getElementById('dateFrom').value;
+    const toVal     = document.getElementById('dateTo').value;
+    const login     = document.getElementById('filterLogin').value;
+    const qc        = document.getElementById('filterQC').value;
+    const editing   = document.getElementById('filterEditing').value;
+    const status    = document.getElementById('filterStatus').value;
+
+    // Parse as LOCAL midnight to avoid UTC timezone-shift bug (IST = UTC+5:30)
+    function localMidnight(s) { const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d,0,0,0,0); }
+    function localEndOfDay(s) { const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d,23,59,59,999); }
+    const from = fromVal ? localMidnight(fromVal) : null;
+    const to   = toVal   ? localEndOfDay(toVal) : null;
+
+    filteredRows = allRows.filter(r => {
+      if (from && r._date && r._date < from) return false;
+      if (to   && r._date && r._date > to)   return false;
+      if (login   && r.loginUser   !== login)   return false;
+      if (qc      && r.qcUser      !== qc)      return false;
+      if (editing && r.editUser    !== editing)  return false;
+      if (status  && r.submitIssue !== status)   return false;
+      return true;
+    });
+
+    currentPage = 1;
+    updateStats();
+    updateBreakdowns();
+    renderTable();
+  }
+
+  // ── STATS ────────────────────────────────────────────────────────────
+  function updateStats() {
+    const total = filteredRows.length;
+    const withIssue = filteredRows.filter(r =>
+    r.submitIssue &&
+    r.submitIssue.trim() !== '' &&
+    r.submitIssue.trim().toLowerCase() !== 'done'
+).length;
+    const done  = filteredRows.filter(r => r.submitIssue.trim().toLowerCase() === 'done').length;
+    const nonDone = total - done;
+    const issueRate = total ? ((withIssue / total) * 100).toFixed(1) : 0;
+
+    // avg issues per unique day
+    const days = new Set(filteredRows.filter(r => r._date).map(r => fmt(r._date)));
+    const avgDay = days.size ? (withIssue / days.size).toFixed(1) : '—';
+
+    document.getElementById('statTotal').textContent      = total.toLocaleString();
+    document.getElementById('statSubmitCount').textContent = withIssue.toLocaleString();
+    document.getElementById('statAvgDay').textContent     = avgDay;
+    document.getElementById('statIssueRate').textContent  = issueRate + '%';
+    document.getElementById('statNonDone').textContent    = nonDone.toLocaleString();
+  }
+
+  // ── SORTING (generic, used across every table) ─────────────────────
+  // Default direction is ascending, per user preference.
+  const sortState = {
+    loginUser:     { key: 'key',   dir: 'asc' },
+    qcUser:        { key: 'key',   dir: 'asc' },
+    qcCount:       { key: 'total', dir: 'desc' },
+    topQC:         { key: 'key',   dir: 'asc' },
+    topEnterprise: { key: 'key',   dir: 'asc' },
+    status:        { key: 'key',   dir: 'asc' },
+    mainTable:     { key: 'timestamp', dir: 'asc' }
+  };
+
+  function compareValues(a, b, dir) {
+    let cmp;
+    if (typeof a === 'number' && typeof b === 'number') {
+      cmp = a - b;
+    } else {
+      cmp = String(a ?? '').localeCompare(String(b ?? ''), undefined, { numeric: true, sensitivity: 'base' });
+    }
+    return dir === 'asc' ? cmp : -cmp;
+  }
+
+  function sortData(data, key, dir) {
+    return [...data].sort((a, b) => compareValues(a[key], b[key], dir));
+  }
+
+  // Toggle direction if the same column is clicked again, otherwise start ascending.
+  function setSort(table, key) {
+    const state = sortState[table];
+    if (state.key === key) {
+      state.dir = state.dir === 'asc' ? 'desc' : 'asc';
+    } else {
+      state.key = key;
+      state.dir = 'asc';
+    }
+    renderSortedTable(table);
+  }
+
+  function updateSortArrows(prefix, table) {
+    document.querySelectorAll(`th[id^="${prefix}-"]`).forEach(th => {
+      th.classList.remove('sort-active');
+      const arrow = th.querySelector('.arrow');
+      if (arrow) arrow.textContent = '';
+    });
+    const state = sortState[table];
+    const activeTh = document.getElementById(`${prefix}-${state.key}`);
+    if (activeTh) {
+      activeTh.classList.add('sort-active');
+      const arrow = activeTh.querySelector('.arrow');
+      if (arrow) arrow.textContent = state.dir === 'asc' ? '▲' : '▼';
+    }
+  }
+
+  function renderSortedTable(table) {
+    if (table === 'loginUser')     renderLoginUserTable();
+    if (table === 'qcUser')        renderQCUserTable();
+    if (table === 'qcCount')       renderQCCountTable();
+    if (table === 'topQC')         renderTopQCTable();
+    if (table === 'topEnterprise') renderTopEnterpriseTable();
+    if (table === 'status')        renderStatusTable();
+    if (table === 'mainTable')     renderTable();
+  }
+
+  // ── BREAKDOWN TABLES ─────────────────────────────────────────────────
+  let loginUserData = [], qcUserData = [], qcCountData = [], topQCData = [], topEnterpriseData = [], statusData = [];
+
+  function updateBreakdowns() {
+    buildBreakdown('tableLoginUser', 'loginUser');
+    buildQCUserTable();
+    buildQCCountTable();
+    buildTopQCUsers();
+    buildTopEnterprises();
+    buildStatusBreakdown();
+}
+
+  function buildBreakdown(tbodyId, field) {
+    const map = {};
+    filteredRows.forEach(r => {
+      const key = r[field] || '(blank)';
+      if (!map[key]) map[key] = { total: 0, issues: 0, done: 0 };
+      map[key].total++;
+      if (
+        r.submitIssue &&
+        r.submitIssue.trim() !== '' &&
+        r.submitIssue.trim().toLowerCase() !== 'done'
+      ) {
+        map[key].issues++;
+      }
+      if (r.submitIssue.trim().toLowerCase() === 'done') map[key].done++;
+    });
+    loginUserData = Object.entries(map).map(([key, v]) => ({
+      key, ...v,
+      rate: v.total ? +((v.issues / v.total) * 100).toFixed(1) : 0
+    }));
+    renderLoginUserTable();
+  }
+
+  function renderLoginUserTable() {
+    const state = sortState.loginUser;
+    const sorted = sortData(loginUserData, state.key, state.dir);
+    const maxTotal = Math.max(1, ...loginUserData.map(v => v.total));
+    const tbody = document.getElementById('tableLoginUser');
+    tbody.innerHTML = sorted.map(v => `
+      <tr>
+        <td>${escHtml(v.key)}</td>
+        <td>
+          <div class="bar-wrap">
+            <div class="bar" style="width:${Math.max(4, (v.total/maxTotal)*120)}px"></div>
+            <span class="bar-val">${v.total}</span>
+          </div>
+        </td>
+        <td class="mono">${v.issues}</td>
+        <td><span class="pill ${v.rate === 0 ? 'pill-done' : 'pill-other'}">${v.rate}%</span></td>
+        <td><span class="pill ${v.done===v.total?'pill-done':'pill-other'}">${v.done}</span></td>
+      </tr>`).join('');
+
+    // Remove any leftover drill-down button
+    const card = tbody.closest('.table-card');
+    const existing = card && card.querySelector('.btn-drilldown');
+    if (existing) existing.remove();
+
+    updateSortArrows('th-login', 'loginUser');
+  }
+
+  // ── QC USER TABLE (Issue Rate + click-to-expand enterprise breakdown) ──
+  function buildQCUserTable() {
+    const map = {};
+    filteredRows.forEach(r => {
+      const key = r.qcUser || '(blank)';
+      if (!map[key]) map[key] = { total: 0, issues: 0 };
+      map[key].total++;
+      const status = (r.submitIssue || '').trim().toLowerCase();
+      if (status !== '' && status !== 'done') map[key].issues++;
+    });
+    qcUserData = Object.entries(map).map(([key, v]) => ({
+      key, total: v.total, issues: v.issues,
+      rate: v.total ? +((v.issues / v.total) * 100).toFixed(1) : 0
+    }));
+    renderQCUserTable();
+  }
+
+  function renderQCUserTable() {
+    const state = sortState.qcUser;
+    const sorted = sortData(qcUserData, state.key, state.dir);
+    const maxTotal = Math.max(1, ...qcUserData.map(v => v.total));
+    const tbody = document.getElementById('tableQCUser');
+    tbody.innerHTML = sorted.map((v, idx) => `
+        <tr class="qc-row" data-qc="${escHtml(v.key)}" onclick="toggleQCDrilldown(this, ${idx})" style="cursor:pointer;">
+          <td>${escHtml(v.key)}</td>
+          <td>
+            <div class="bar-wrap">
+              <div class="bar" style="width:${Math.max(4, (v.total/maxTotal)*120)}px"></div>
+              <span class="bar-val">${v.total}</span>
+            </div>
+          </td>
+          <td class="mono">${v.issues}</td>
+          <td><span class="pill ${v.rate === 0 ? 'pill-done' : 'pill-other'}">${v.rate}%</span></td>
+        </tr>
+        <tr class="drill-row" id="qc-drill-${idx}"><td colspan="4" style="padding:0;"></td></tr>`).join('');
+    updateSortArrows('th-qc', 'qcUser');
+  }
+
+  function toggleQCDrilldown(rowEl, idx) {
+    const drillRow = document.getElementById('qc-drill-' + idx);
+    const wasVisible = drillRow.classList.contains('visible');
+    document.querySelectorAll('#tableQCUser .drill-row.visible').forEach(r => r.classList.remove('visible'));
+    if (wasVisible) return;
+
+    const qc = rowEl.dataset.qc;
+    const entMap = {};
+    filteredRows
+      .filter(r => (r.qcUser || '(blank)') === qc)
+      .forEach(r => {
+        const ent = (r.enterprise || '').trim() || 'N/A';
+        if (!entMap[ent]) entMap[ent] = { total: 0, issues: 0 };
+        entMap[ent].total++;
+        const status = (r.submitIssue || '').trim().toLowerCase();
+        if (status !== '' && status !== 'done') entMap[ent].issues++;
+      });
+    const rows = Object.entries(entMap).sort((a,b) => b[1].issues - a[1].issues);
+
+    const body = rows.length ? rows.map(([ent, v]) => {
+      const rate = v.total ? ((v.issues / v.total) * 100).toFixed(1) : '0.0';
+      return `<tr>
+        <td style="padding:6px 10px;">${escHtml(ent)}</td>
+        <td style="padding:6px 10px;" class="mono">${v.total}</td>
+        <td style="padding:6px 10px;" class="mono">${v.issues}</td>
+        <td style="padding:6px 10px;" class="mono">${rate}%</td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="4" style="padding:10px;color:var(--muted);">No records</td></tr>`;
+
+    drillRow.querySelector('td').innerHTML = `
+      <div style="padding:8px 14px 14px;background:var(--bg);">
+        <div style="font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin:6px 0 6px 10px;">
+          Enterprise breakdown for ${escHtml(qc)}
+        </div>
+        <table style="width:100%;font-size:.75rem;border-collapse:collapse;">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;">Enterprise</th>
+              <th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;">Images</th>
+              <th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;">Submit Issues</th>
+              <th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;">Issue Rate</th>
+            </tr>
+          </thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>`;
+    drillRow.classList.add('visible');
+  }
+
+  // ── QC'D IMAGES PER USER — DATE-WISE MATRIX (filter aware) ──
+  // Rows = QC users, one column per date in the filtered range,
+  // cell = images QC'd that day (✕ when none), plus a Total column.
+  let qcCountDates = [];
+
+  function buildQCCountTable() {
+    const userMap = {};
+    const dateSet = new Set();
+    filteredRows.forEach(r => {
+      const key = r.qcUser || '(blank)';
+      if (!userMap[key]) userMap[key] = { key, total: 0, byDate: {} };
+      userMap[key].total++;
+      if (r._date) {
+        const d = fmt(r._date);
+        dateSet.add(d);
+        userMap[key].byDate[d] = (userMap[key].byDate[d] || 0) + 1;
+      }
+    });
+    qcCountDates = [...dateSet].sort();
+    qcCountData  = Object.values(userMap);
+    renderQCCountTable();
+  }
+
+  const MON3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function dateColLabel(ds) {           // "2026-07-01" → "1-Jul"
+    const [y, m, d] = ds.split('-');
+    return (+d) + '-' + MON3[+m - 1];
+  }
+
+  function renderQCCountTable() {
+    const wrap = document.getElementById('qcMatrixWrap');
+    if (!wrap) return;
+    const state = sortState.qcCount;
+    const sorted = sortData(qcCountData, state.key, state.dir);
+    const totalImages = qcCountData.reduce((s, v) => s + v.total, 0);
+
+    document.getElementById('qcCountUsers').textContent =
+      qcCountData.length + ' users · ' + totalImages.toLocaleString() +
+      ' images · ' + qcCountDates.length + ' days';
+
+    if (!qcCountData.length) {
+      wrap.innerHTML = '<div class="loader" style="color:var(--muted)">No records match the current filters.</div>';
+      return;
+    }
+
+    const arrow = k => state.key === k ? (state.dir === 'asc' ? ' ▲' : ' ▼') : '';
+
+    const headDates = qcCountDates.map(d =>
+      `<th>${dateColLabel(d)}</th>`).join('');
+
+    const bodyRows = sorted.map(u => {
+      const cells = qcCountDates.map(d => {
+        const c = u.byDate[d];
+        return c
+          ? `<td class="num">${c.toLocaleString()}</td>`
+          : `<td class="zero">✕</td>`;
+      }).join('');
+      return `<tr>
+        <td class="sticky-col email">${escHtml(u.key)}</td>
+        ${cells}
+        <td class="num" style="font-weight:700;color:var(--text);">${u.total.toLocaleString()}</td>
+      </tr>`;
+    }).join('');
+
+    // per-date totals footer row
+    const dateTotals = qcCountDates.map(d => {
+      const t = qcCountData.reduce((s, u) => s + (u.byDate[d] || 0), 0);
+      return `<td class="num">${t.toLocaleString()}</td>`;
+    }).join('');
+
+    wrap.innerHTML = `
+      <table class="qc-matrix">
+        <thead>
+          <tr>
+            <th class="sticky-col sortable ${state.key==='key'?'sort-active':''}" onclick="setSort('qcCount','key')">QC User${arrow('key')}</th>
+            ${headDates}
+            <th class="sortable ${state.key==='total'?'sort-active':''}" onclick="setSort('qcCount','total')">Total${arrow('total')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${bodyRows}
+          <tr class="total-row">
+            <td class="sticky-col">Total (${qcCountData.length} users)</td>
+            ${dateTotals}
+            <td class="num" style="color:var(--text);">${totalImages.toLocaleString()}</td>
+          </tr>
+        </tbody>
+      </table>`;
+  }
+
+  function buildStatusBreakdown() {
+    const map = {};
+    filteredRows.forEach(r => {
+      const key = r.submitIssue.trim() || '(blank)';
+      map[key] = (map[key] || 0) + 1;
+    });
+    const total = filteredRows.length || 1;
+    const sorted = Object.entries(map).sort((a,b) => b[1] - a[1]);
+    document.getElementById('tableStatus').innerHTML = sorted.map(([key, cnt]) => `
+      <tr>
+        <td><span class="pill ${key.toLowerCase()==='done'?'pill-done':'pill-other'}">${escHtml(key)}</span></td>
+        <td class="mono">${cnt}</td>
+        <td class="mono">${((cnt/total)*100).toFixed(1)}%</td>
+      </tr>`).join('');
+  }
+function buildTopQCUsers() {
+
+    const map = {};
+
+    filteredRows.forEach(r => {
+
+        const qc = r.qcUser || "N/A";
+        if (!map[qc]) map[qc] = { total: 0, issues: 0 };
+        map[qc].total++;
+
+        const status = (r.submitIssue || "").trim().toLowerCase();
+
+        // Ignore Done and Blank when counting submit issues
+        if (status === "" || status === "done") return;
+
+        map[qc].issues++;
+
+    });
+
+    topQCData = Object.entries(map)
+        .map(([key, v]) => ({
+            key,
+            count: v.issues,
+            total: v.total,
+            rate: v.total ? +((v.issues / v.total) * 100).toFixed(1) : 0
+        }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+
+    renderTopQCTable();
+}
+
+function renderTopQCTable() {
+    const state = sortState.topQC;
+    const sorted = sortData(topQCData, state.key, state.dir);
+    const max = topQCData.length ? Math.max(...topQCData.map(v => v.count)) : 1;
+
+    document.getElementById("tableTopQC").innerHTML =
+        sorted.map(v => `
+            <tr>
+                <td>${escHtml(v.key)}</td>
+                <td>
+                    <div class="bar-wrap">
+                        <div class="bar" style="width:${Math.max(4,(v.count/max)*120)}px"></div>
+                        <span class="bar-val">${v.count}</span>
+                    </div>
+                </td>
+                <td><span class="pill ${v.rate === 0 ? 'pill-done' : 'pill-other'}">${v.rate}%</span></td>
+            </tr>
+        `).join("");
+
+    updateSortArrows('th-topqc', 'topQC');
+}
+// ── TREND MODAL (generic, month-wise, one metric per stat card) ──
+let trendChartInstance = null;
+const trendModalState = { metric: 'overall', range: '3m', chartType: 'bar' };
+
+const TREND_METRIC_META = {
+    totalImages: { title: 'Total Images — Monthly Trend',        label: 'Total Images',        color: '#6c63ff', isPercent: false },
+    submitCount: { title: 'Submit Issues (Count) — Monthly Trend', label: 'Submit Issues',      color: '#00d4aa', isPercent: false },
+    avgDay:      { title: 'Submit Issue (Avg/Day) — Monthly Trend', label: 'Avg Issues / Day',  color: '#f59e0b', isPercent: false },
+    overall:     { title: 'Overall Issue Rate — Monthly Trend',   label: 'Issue Rate (%)',       color: '#ef4444', isPercent: true },
+    nonDone:     { title: 'Non-Done Issues — Monthly Trend',      label: 'Non-Done Issues',      color: '#ef4444', isPercent: false }
+};
+
+function openTrendModal(metric) {
+    trendModalState.metric = metric;
+    document.getElementById('issueRateModalOverlay').style.display = 'flex';
+    document.getElementById('trendModalTitle').textContent = (TREND_METRIC_META[metric] || {}).title || 'Monthly Trend';
+    updateTrendToggleButtons();
+    renderTrendModalChart();
+}
+
+function setTrendRange(range) {
+    trendModalState.range = range;
+    updateTrendToggleButtons();
+    renderTrendModalChart();
+}
+
+function setTrendChartType(type) {
+    trendModalState.chartType = type;
+    updateTrendToggleButtons();
+    renderTrendModalChart();
+}
+
+function updateTrendToggleButtons() {
+    document.getElementById('trendRange3m').classList.toggle('active', trendModalState.range === '3m');
+    document.getElementById('trendRangeAll').classList.toggle('active', trendModalState.range === 'all');
+    document.getElementById('trendTypeCurve').classList.toggle('active', trendModalState.chartType === 'curve');
+    document.getElementById('trendTypeBar').classList.toggle('active', trendModalState.chartType === 'bar');
+}
+
+function closeTrendModal() {
+    document.getElementById('issueRateModalOverlay').style.display = 'none';
+    if (trendChartInstance) { trendChartInstance.destroy(); trendChartInstance = null; }
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeTrendModal();
+});
+
+function renderTrendModalChart() {
+    const canvas = document.getElementById('issueRateTrendChart');
+    const emptyMsg = document.getElementById('issueRateTrendEmpty');
+    const descEl = document.getElementById('trendModalDesc');
+    if (!canvas || !emptyMsg) return;
+
+    const { metric, range, chartType } = trendModalState;
+    const meta = TREND_METRIC_META[metric] || TREND_METRIC_META.overall;
+
+    // Respect every active dashboard filter EXCEPT the date range, so the trend spans
+    // every month regardless of how narrow the top date-range filter currently is.
+    const login   = document.getElementById('filterLogin').value;
+    const qc      = document.getElementById('filterQC').value;
+    const editing = document.getElementById('filterEditing').value;
+    const status  = document.getElementById('filterStatus').value;
+
+    const rows = allRows.filter(r => {
+        if (login   && r.loginUser   !== login)   return false;
+        if (qc      && r.qcUser      !== qc)      return false;
+        if (editing && r.editUser    !== editing) return false;
+        if (status  && r.submitIssue !== status)  return false;
+        return !!r._date;
+    });
+
+    const monthMap = {};
+    rows.forEach(r => {
+        const ym = r._date.getFullYear() + '-' + String(r._date.getMonth() + 1).padStart(2, '0');
+        if (!monthMap[ym]) monthMap[ym] = { total: 0, issues: 0, done: 0, days: new Set() };
+        const m = monthMap[ym];
+        m.total++;
+        m.days.add(fmt(r._date));
+        const s = (r.submitIssue || '').trim().toLowerCase();
+        if (s !== '' && s !== 'done') m.issues++;
+        if (s === 'done') m.done++;
+    });
+
+    function metricValue(m) {
+        switch (metric) {
+            case 'totalImages': return m.total;
+            case 'submitCount': return m.issues;
+            case 'nonDone':     return m.total - m.done;
+            case 'avgDay':      return m.days.size ? +((m.issues / m.days.size).toFixed(1)) : 0;
+            case 'overall':
+            default:            return m.total ? +((m.issues / m.total) * 100).toFixed(1) : 0;
+        }
+    }
+
+    let months = Object.keys(monthMap).sort();
+    if (range === '3m') months = months.slice(-3);
+
+    if (trendChartInstance) { trendChartInstance.destroy(); trendChartInstance = null; }
+
+    if (descEl) {
+        descEl.textContent = 'Filtered by your current Login/QC/Editing/Status filters, independent of the date-range picker above.';
+    }
+
+    if (!months.length) {
+        canvas.style.display = 'none';
+        emptyMsg.style.display = 'block';
+        emptyMsg.textContent = 'No data available for the current filters.';
+        return;
+    }
+
+    if (typeof Chart === 'undefined') {
+        canvas.style.display = 'none';
+        emptyMsg.style.display = 'block';
+        emptyMsg.textContent = 'Chart library failed to load. Check your network connection.';
+        return;
+    }
+
+    emptyMsg.style.display = 'none';
+    canvas.style.display = 'block';
+
+    const labels = months.map(m => {
+        const [y, mo] = m.split('-');
+        return new Date(+y, +mo - 1, 1).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+    });
+    const values = months.map(m => metricValue(monthMap[m]));
+
+    const isLight = document.body.classList.contains('light-mode');
+    const gridColor = isLight ? '#dde1f0' : '#2e3348';
+    const textColor = isLight ? '#6b7280' : '#8892a4';
+    const isCurve = chartType === 'curve';
+    const seriesType = isCurve ? 'line' : 'bar';
+    const color = meta.color;
+
+    trendChartInstance = new Chart(canvas.getContext('2d'), {
+        data: {
+            labels,
+            datasets: [
+                {
+                    type: seriesType,
+                    label: meta.label,
+                    data: values,
+                    backgroundColor: color,
+                    borderColor: color,
+                    borderRadius: isCurve ? 0 : 4,
+                    maxBarThickness: 46,
+                    tension: isCurve ? 0.35 : 0,
+                    pointRadius: isCurve ? 4 : 0,
+                    pointBackgroundColor: color,
+                    fill: false,
+                    yAxisID: 'y'
+                }
+            ]
+        },
+        plugins: [{
+            id: 'valueLabels',
+            afterDatasetsDraw(chart) {
+                const { ctx } = chart;
+                ctx.save();
+                ctx.font = '600 11px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.fillStyle = color;
+                const meta0 = chart.getDatasetMeta(0);
+                const yOffset = isCurve ? 10 : 4;
+                meta0.data.forEach((el, i) => {
+                    const val = values[i];
+                    const label = meta.isPercent ? val + '%' : val;
+                    ctx.fillText(label, el.x, el.y - yOffset);
+                });
+                ctx.restore();
+            }
+        }],
+        options: {
+            responsive: true,
+            layout: { padding: { top: 22 } },
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                title: { display: true, text: meta.title, color: textColor, font: { size: 13 } }
+            },
+            scales: {
+                x: { ticks: { color: textColor }, grid: { color: gridColor } },
+                y: {
+                    beginAtZero: true,
+                    max: meta.isPercent ? 100 : undefined,
+                    title: { display: true, text: meta.label, color: textColor },
+                    ticks: { color: textColor },
+                    grid: { color: gridColor }
+                }
+            }
+        }
+    });
+}
+
+function buildTopEnterprises() {
+    const map = {};
+    filteredRows.forEach(r => {
+        const ent = (r.enterprise || '').trim() || 'N/A';
+        if (!map[ent]) map[ent] = { issues: 0, total: 0 };
+        map[ent].total++;
+        const status = (r.submitIssue || '').trim().toLowerCase();
+        if (status !== '' && status !== 'done') {
+            map[ent].issues++;
+        }
+    });
+    topEnterpriseData = Object.entries(map)
+        .map(([key, v]) => ({
+            key,
+            issues: v.issues,
+            total: v.total,
+            rate: v.total ? +((v.issues / v.total) * 100).toFixed(1) : 0
+        }))
+        .sort((a, b) => b.issues - a.issues)
+        .slice(0, 10);
+    renderTopEnterpriseTable();
+}
+
+function renderTopEnterpriseTable() {
+    const state = sortState.topEnterprise;
+    const sorted = sortData(topEnterpriseData, state.key, state.dir);
+    const max = topEnterpriseData.length ? Math.max(...topEnterpriseData.map(v => v.issues)) : 1;
+
+    document.getElementById('tableTopEnterprise').innerHTML =
+        sorted.map((v, i) => `
+            <tr class="ent-row" data-ent="${escHtml(v.key)}" onclick="toggleEntDrilldown(this, ${i})" style="cursor:pointer;">
+                <td class="mono" style="color:var(--accent);font-weight:700;">${i+1}</td>
+                <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--accent);text-decoration:underline;text-underline-offset:2px;" title="${escHtml(v.key)}">${escHtml(v.key)}</td>
+                <td>
+                    <div class="bar-wrap">
+                        <div class="bar" style="width:${Math.max(4,(v.issues/max)*110)}px;background:var(--danger);"></div>
+                        <span class="bar-val" style="color:var(--danger);font-weight:600;">${v.issues}</span>
+                    </div>
+                </td>
+                <td class="mono">${v.total}</td>
+                <td class="mono">${v.total ? v.rate+'%' : '—'}</td>
+            </tr>
+            <tr class="drill-row" id="ent-drill-${i}"><td colspan="5" style="padding:0;"></td></tr>
+        `).join('');
+
+    updateSortArrows('th-ent', 'topEnterprise');
+}
+
+function toggleEntDrilldown(rowEl, idx) {
+    const drillRow = document.getElementById('ent-drill-' + idx);
+    const wasVisible = drillRow.classList.contains('visible');
+    document.querySelectorAll('#tableTopEnterprise .drill-row.visible').forEach(r => r.classList.remove('visible'));
+    if (wasVisible) return;
+
+    const ent = rowEl.dataset.ent;
+    const entRows = filteredRows.filter(r => ((r.enterprise || '').trim() || 'N/A') === ent);
+    const entTotal = entRows.length || 1;
+
+    const catMap = {};
+    entRows.forEach(r => {
+        const cat = (r.submitIssue || '').trim() || '(blank)';
+        catMap[cat] = (catMap[cat] || 0) + 1;
+    });
+    const rows = Object.entries(catMap).sort((a,b) => b[1] - a[1]);
+
+    const body = rows.length ? rows.map(([cat, count]) => {
+        const share = ((count / entTotal) * 100).toFixed(1);
+        const isDone = cat.toLowerCase() === 'done';
+        return `<tr>
+            <td style="padding:6px 10px;"><span class="pill ${isDone ? 'pill-done' : 'pill-other'}">${escHtml(cat)}</span></td>
+            <td style="padding:6px 10px;" class="mono">${count}</td>
+            <td style="padding:6px 10px;" class="mono">${share}%</td>
+        </tr>`;
+    }).join('') : `<tr><td colspan="3" style="padding:10px;color:var(--muted);">No records</td></tr>`;
+
+    drillRow.querySelector('td').innerHTML = `
+      <div style="padding:8px 14px 14px;background:var(--bg);">
+        <div style="font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin:6px 0 6px 10px;">
+          Issue-category breakdown for ${escHtml(ent)}
+        </div>
+        <table style="width:100%;font-size:.75rem;border-collapse:collapse;">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;">Status</th>
+              <th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;">Images</th>
+              <th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;">Issue Rate</th>
+            </tr>
+          </thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>`;
+    drillRow.classList.add('visible');
+}
+
+  function renderTable() {
+    // "All Records" detailed view was removed from the page; keep this as a
+    // safe no-op so applyFilters()/sorting keep working unchanged.
+    const container = document.getElementById('tableContainer');
+    if (!container) return;
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const page  = filteredRows.slice(start, start + PAGE_SIZE);
+    const total = filteredRows.length;
+
+    document.getElementById('rowCount').textContent =
+      `${total.toLocaleString()} records`;
+
+    if (!total) {
+      document.getElementById('tableContainer').innerHTML =
+        '<div class="loader" style="color:var(--muted)">No records match the current filters.</div>';
+      document.getElementById('pagination').style.display = 'none';
+      return;
+    }
+
+    const rows = page.map(r => `
+      <tr>
+        <td class="mono">${escHtml(r.timestamp)}</td>
+        <td>${escHtml(r.loginUser)}</td>
+        <td class="email">${escHtml(r.qcUser)}</td>
+        <td class="email">${escHtml(r.editUser) || '<span style="color:var(--border)">N/A</span>'}</td>
+        <td class="mono" style="font-size:.7rem">${escHtml(r.issue) || '<span style="color:var(--border)">—</span>'}</td>
+        <td><span class="pill ${r.submitIssue.toLowerCase()==='done'?'pill-done':'pill-other'}">${escHtml(r.submitIssue)}</span></td>
+        <td class="mono" style="font-size:.68rem;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(r.enterprise)}</td>
+      </tr>`).join('');
+
+    document.getElementById('tableContainer').innerHTML = `
+      <div class="main-table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Login User</th>
+              <th>QC User</th>
+              <th>Editing User</th>
+              <th>Issue</th>
+              <th>Submit Issue</th>
+              <th>Enterprise</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+
+    // pagination
+    const totalPages = Math.ceil(total / PAGE_SIZE);
+    if (totalPages > 1) {
+      document.getElementById('pagination').style.display = 'flex';
+      document.getElementById('pageInfo').textContent =
+        `Page ${currentPage} of ${totalPages}`;
+      document.getElementById('btnPrev').disabled = currentPage === 1;
+      document.getElementById('btnNext').disabled = currentPage === totalPages;
+    } else {
+      document.getElementById('pagination').style.display = 'none';
+    }
+  }
+
+  function changePage(dir) {
+    currentPage += dir;
+    renderTable();
+    window.scrollTo({ top: document.querySelector('.section-title:last-of-type')?.offsetTop - 20, behavior: 'smooth' });
+  }
+
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;');
+  }
+
+  // ── IST-SAFE DATE HELPERS ───────────────────────────────────────────
+  // Always use LOCAL date parts — never .toISOString() which shifts to UTC
+  function toLocalDateStr(d) {
+    if (!d) return '';
+    const yy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yy}-${mm}-${dd}`;
+  }
+  function setDateInputs(s, e) {
+    document.getElementById('dateFrom').value = s ? toLocalDateStr(s) : '';
+    document.getElementById('dateTo').value   = e ? toLocalDateStr(e) : '';
+  }
+
+  // ── DATE RANGE PICKER ────────────────────────────────────────────────
+  const QUICK_PRESETS = [
+    { label: 'Today',       fn: () => { const d=new Date(); return [d,d]; } },
+    { label: 'Yesterday',   fn: () => { const d=new Date(); d.setDate(d.getDate()-1); return [d,d]; } },
+    { label: 'Last 7 days', fn: () => { const e=new Date(),s=new Date(); s.setDate(s.getDate()-6); return [s,e]; } },
+    { label: 'Last 30 days',fn: () => { const e=new Date(),s=new Date(); s.setDate(s.getDate()-29); return [s,e]; } },
+  ];
+  const MONTH_PRESETS = [
+    { label: 'This month',   fn: () => { const n=new Date(); return [new Date(n.getFullYear(),n.getMonth(),1),new Date(n.getFullYear(),n.getMonth()+1,0)]; } },
+    { label: 'Last month',   fn: () => { const n=new Date(); return [new Date(n.getFullYear(),n.getMonth()-1,1),new Date(n.getFullYear(),n.getMonth(),0)]; } },
+    { label: 'Last 3 months',fn: () => { const e=new Date(),s=new Date(); s.setMonth(s.getMonth()-3); return [s,e]; } },
+    { label: 'Last 6 months',fn: () => { const e=new Date(),s=new Date(); s.setMonth(s.getMonth()-6); return [s,e]; } },
+  ];
+  const EXTRA_PRESETS = [
+    { label: 'This year',    fn: () => { const n=new Date(); return [new Date(n.getFullYear(),0,1),new Date(n.getFullYear(),11,31)]; } },
+    { label: 'All time',     fn: () => [null,null] },
+    { label: 'Custom range', fn: () => null },
+  ];
+
+  let calYear, calMonth, calSelStart=null, calSelEnd=null, calHover=null, activePreset='Last 30 days';
+
+  function buildQuickLists() {
+    function makeItem(p, id) {
+      const el = document.createElement('div');
+      el.id = id;
+      el.textContent = p.label;
+      el.style.cssText = 'padding:7px 18px;font-size:.82rem;cursor:pointer;border-radius:6px;transition:background .1s;color:var(--text);';
+      el.onmouseover = () => { if(el.id !== 'dp-active') el.style.background='rgba(255,255,255,.05)'; };
+      el.onmouseout  = () => { if(el.id !== 'dp-active') el.style.background=''; };
+      el.onclick = () => {
+        if(p.label === 'Custom range') { highlightPreset(p.label); return; }
+        const res = p.fn();
+        if(!res) { setRange(null,null,'All time'); }
+        else { setRange(res[0],res[1],p.label); }
+        closeDatePicker();
+      };
+      return el;
+    }
+    const ql=document.getElementById('quickList');
+    QUICK_PRESETS.forEach((p,i)=>ql.appendChild(makeItem(p,'qp-'+i)));
+    const ml=document.getElementById('monthList');
+    MONTH_PRESETS.forEach((p,i)=>ml.appendChild(makeItem(p,'mp-'+i)));
+    const el=document.getElementById('extraList');
+    EXTRA_PRESETS.forEach((p,i)=>el.appendChild(makeItem(p,'ep-'+i)));
+  }
+
+  function highlightPreset(label) {
+    activePreset = label;
+    document.querySelectorAll('#datePickerPanel [id^="qp-"],[id^="mp-"],[id^="ep-"]').forEach(el=>{
+      if(el.textContent===label){
+        el.style.background='var(--accent)';el.style.color='#fff';el.id+=''; // mark
+      } else {
+        el.style.background='';el.style.color='var(--text)';
+      }
+    });
+  }
+
+  let calViewYear, calViewMonth;
+  function initCal() {
+    const now = new Date();
+    calViewYear  = now.getFullYear();
+    calViewMonth = now.getMonth();
+    renderCal();
+  }
+  function calNav(dir) {
+    calViewMonth += dir;
+    if(calViewMonth<0){calViewMonth=11;calViewYear--;}
+    if(calViewMonth>11){calViewMonth=0;calViewYear++;}
+    renderCal();
+  }
+  const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  function renderCal() {
+    document.getElementById('calMonthLabel').textContent = MONTHS[calViewMonth]+' '+calViewYear;
+    const grid = document.getElementById('calGrid');
+    grid.innerHTML = '';
+    const firstDay = new Date(calViewYear, calViewMonth, 1).getDay();
+    const daysInMonth = new Date(calViewYear, calViewMonth+1, 0).getDate();
+    // empty cells
+    for(let i=0;i<firstDay;i++){
+      const blank=document.createElement('div'); blank.style.height='32px'; grid.appendChild(blank);
+    }
+    for(let d=1;d<=daysInMonth;d++){
+      const date = new Date(calViewYear, calViewMonth, d);
+      const btn  = document.createElement('button');
+      btn.textContent = d;
+      btn.dataset.ts = date.getTime(); // store timestamp for reliable reference
+      btn.style.cssText = 'width:100%;height:32px;border:none;border-radius:6px;font-size:0.8rem;cursor:pointer;font-family:var(--sans);transition:background .15s,color .15s;';
+      styleCalDay(btn, date);
+      btn.addEventListener('click', (function(capturedDate) {
+        return function(e) {
+          e.stopPropagation();
+          if(!calSelStart || (calSelStart && calSelEnd)) {
+            calSelStart = new Date(capturedDate); calSelEnd = null;
+          } else {
+            if(capturedDate < calSelStart) { calSelEnd=new Date(calSelStart); calSelStart=new Date(capturedDate); }
+            else { calSelEnd = new Date(capturedDate); }
+          }
+          calHover = null;
+          updateCalRangeText();
+          restyleAllCalDays();
+        };
+      })(date));
+      btn.addEventListener('mouseover', (function(capturedDate) {
+        return function() { calHover=new Date(capturedDate); restyleAllCalDays(); };
+      })(date));
+      btn.addEventListener('mouseout', function() { calHover=null; restyleAllCalDays(); });
+      grid.appendChild(btn);
+    }
+  }
+
+  function restyleAllCalDays() {
+    const grid = document.getElementById('calGrid');
+    if (!grid) return;
+    const btns = grid.querySelectorAll('button[data-ts]');
+    btns.forEach(btn => {
+      const date = new Date(parseInt(btn.dataset.ts));
+      styleCalDay(btn, date);
+    });
+  }
+  function styleCalDay(btn, date) {
+    const inRange = isInRange(date);
+    const isStart = calSelStart && sameDay(date, calSelStart);
+    const isEnd   = calSelEnd   && sameDay(date, calSelEnd);
+    if(isStart||isEnd){ btn.style.background='var(--accent)';btn.style.color='#fff';btn.style.fontWeight='700'; }
+    else if(inRange){ btn.style.background='rgba(108,99,255,.25)';btn.style.color='var(--text)'; }
+    else { btn.style.background='transparent';btn.style.color='var(--text)'; }
+  }
+  function isInRange(date) {
+    const s = calSelStart, e = calSelEnd || calHover;
+    if(!s) return false;
+    const lo=s<(e||s)?s:(e||s), hi=s<(e||s)?(e||s):s;
+    return date>lo && date<hi;
+  }
+  function sameDay(a,b){ return a&&b&&a.toDateString()===b.toDateString(); }
+  function updateCalRangeText() {
+    const fmt2 = d => d ? d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}).replace(/ /g,'-') : '?';
+    document.getElementById('calRangeText').textContent =
+      calSelStart ? fmt2(calSelStart) + (calSelEnd ? ' → '+fmt2(calSelEnd) : ' → ?') : '';
+  }
+  function applyCustomRange() {
+
+if (!calSelStart) return;
+
+const start = new Date(calSelStart);
+
+const end = new Date(calSelEnd || calSelStart);
+
+// Ensure start is before end
+
+const from = start <= end ? start : end;
+
+const to = start <= end ? end : start;
+
+// Save values to hidden inputs (use local date string to avoid UTC/IST shift)
+
+setDateInputs(from, to);
+
+// Update labels
+
+document.getElementById('dateRangeLabel').textContent = 'Custom range';
+
+document.getElementById('headerDateText').textContent =
+
+from.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}).replace(/ /g,'-')
+
++ ' → ' +
+
+to.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}).replace(/ /g,'-');
+
+// Apply filter
+
+applyFilters();
+
+// Close picker
+
+closeDatePicker();
+
+}
+
+  function setRange(s, e, label) {
+    // Use local date string — toISOString() shifts to UTC and breaks IST filters
+    setDateInputs(s, e);
+    document.getElementById('dateRangeLabel').textContent = label || 'Custom range';
+    // update header chip
+    const chipLabel = s && e
+      ? s.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}).replace(/ /g,'-')
+        + ' → '
+        + e.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}).replace(/ /g,'-')
+      : (label || 'All time');
+    document.getElementById('headerDateText').textContent = chipLabel;
+    highlightPreset(label);
+    applyFilters();
+  }
+
+  function toggleDatePicker(e) {
+    e.stopPropagation();
+    const panel = document.getElementById('datePickerPanel');
+    if(panel.style.display==='none') {
+      // position below button
+      const btn = document.getElementById('dateRangeBtn');
+      const r = btn.getBoundingClientRect();
+      panel.style.top  = (r.bottom+6)+'px';
+      panel.style.left = r.left+'px';
+      panel.style.display='block';
+      initCal();
+      highlightPreset(activePreset);
+    } else {
+      closeDatePicker();
+    }
+  }
+  function closeDatePicker() {
+    document.getElementById('datePickerPanel').style.display='none';
+  }
+  function cancelDatePicker() { closeDatePicker(); }
+
+  document.addEventListener('click', ()=>{ closeDatePicker(); });
+
+  // init picker lists & default 30-day range
+  buildQuickLists();
+  (function(){
+    const e=new Date(), s=new Date(); s.setDate(s.getDate()-29);
+    setDateInputs(s, e); // use local date string — avoids UTC/IST date shift
+    highlightPreset('Last 30 days');
+  })();
+
+  // ── THEME TOGGLE ─────────────────────────────────────────────────────
+  function toggleTheme() {
+    const isLight = document.body.classList.toggle('light-mode');
+    document.getElementById('themeIconDark').style.display  = isLight ? 'none'  : '';
+    document.getElementById('themeIconLight').style.display = isLight ? ''      : 'none';
+    // keep picker panel bg in sync
+    const panel = document.getElementById('datePickerPanel');
+    if(panel) panel.style.background = 'var(--surface2)';
+    // refresh issue-rate trend chart colors for the new theme, if the modal is open
+    if (trendChartInstance) renderTrendModalChart();
+  }
+
+  // ── INIT ─────────────────────────────────────────────────────────────
+  loadData();
+</script>
+
+</body>
+</html>
