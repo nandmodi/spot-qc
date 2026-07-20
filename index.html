@@ -1770,7 +1770,7 @@ async function fetchReviewedIds() {
   }
 }
 
-const PROXY = "https://media.spyneai.com/unsafe/0x0/filters:format(webp):quality(80)/";
+const PROXY = "https://media.spyneai.com/unsafe/1200x0/filters:format(webp):quality(80)/";
 
 const FMAP = {
   qc: { ent:'enterprise_name', img:'ai.image_id', sku:'sku_id', l:'input_image_hres_url', m:'output_image_hres_url', r:'manual_image_hres_url', u:'qc_user_name' },
@@ -2342,18 +2342,25 @@ function showRecord(){
       { el: _id('imgM'), src: PROXY + r.m },
       ...(mode !== 'qc' ? [{ el: _id('imgR'), src: PROXY + (r.r || r.m) }] : [])
     ];
-    
+
     imgs.forEach(({ el, src }) => {
-      el.onload = () => { el.classList.add('loaded'); loadedCount++; if (loadedCount >= required) enableSubmit(); };
-      el.onerror = () => { loadedCount++; if (loadedCount >= required) enableSubmit(); };
-      
+      let settled = false;
+      const settle = () => {
+        if (settled) return;
+        settled = true;
+        loadedCount++;
+        if (loadedCount >= required) enableSubmit();
+      };
+      el.onload = () => { el.classList.add('loaded'); settle(); };
+      el.onerror = () => { settle(); };
+
       if (el.src !== src) {
           el.classList.remove('loaded');
           el.src = src;
+          setTimeout(() => { if (!settled) settle(); }, 2500);
       } else if (el.complete) {
           el.classList.add('loaded');
-          loadedCount++;
-          if (loadedCount >= required) enableSubmit();
+          settle();
       }
     });
 
