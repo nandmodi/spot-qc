@@ -1874,41 +1874,23 @@ async function fetchProductionCount() {
   if (!user) return;
   const is360 = mode === '360';
   try {
-    const countUrl = is360 ? DONE_COUNT_360_URL : DONE_COUNT_URL;
-    const response = await fetch(countUrl + (countUrl.includes('?') ? '&' : '?') + 'cb=' + Date.now());
-    if (!response.ok) return;
-    const csvData = await response.text();
     const boundaries = getShiftBoundaries();
-    
-    Papa.parse(csvData, {
-      header: true, skipEmptyLines: true,
-      complete: res => {
-        const fields = res.meta.fields || [];
-        const findFlexKey = (name) => {
-            const needle = name.trim().toLowerCase().replace(/\s+/g, ' ');
-            return fields.find(k => k.trim().toLowerCase().replace(/\s+/g, ' ') === needle);
-        };
-        const userKey = is360
-          ? (findFlexKey('QC By') || findFlexKey('QC  By') || findFlexKey('Login User'))
-          : (findFlexKey('Login User'));
-        const tsKey = findFlexKey('Timestamp');
-
-        if (!userKey || !tsKey) return;
-        
-        const filteredEntries = res.data.filter(row => {
-          const rowUser = (row[userKey] || '').trim();
-          if (rowUser !== user) return false;
-          const rawTs = (row[tsKey] || '').trim();
-          const entryDate = parseGSheetTimestamp(rawTs);
-          return entryDate && entryDate >= boundaries.start && entryDate < boundaries.end;
-        });
-        
-        if (is360 === (mode === '360')) {
-          currentDoneCount = Math.max(currentDoneCount, filteredEntries.length);
-          _id('doneCounter').textContent = `Done: ${currentDoneCount}`;
-        }
-      }
-    });
+    const product = is360 ? '360' : 'image';
+    const url = AUDIT_URL
+      + '?action=donecount'
+      + '&product=' + encodeURIComponent(product)
+      + '&user=' + encodeURIComponent(user)
+      + '&start=' + encodeURIComponent(boundaries.start.toISOString())
+      + '&end=' + encodeURIComponent(boundaries.end.toISOString())
+      + '&cb=' + Date.now();
+    const response = await fetch(url);
+    if (!response.ok) return;
+    const data = await response.json();
+    if (!data || !data.ok) return;
+    if (is360 === (mode === '360')) {
+      currentDoneCount = Math.max(currentDoneCount, data.count || 0);
+      _id('doneCounter').textContent = `Done: ${currentDoneCount}`;
+    }
   } catch (err) {}
 }
 
