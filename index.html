@@ -2310,6 +2310,8 @@ function showRecord(){
   _id('mEditorWrap').classList.toggle('hidden', !r.editor || mode === 'qc');
   _id('mIssue').textContent = r.issue;
   _id('mIssueWrap').classList.toggle('hidden', !r.issue);
+  const hasBlockerIssue = /blocker/i.test(r.issue || '');
+  _id('mIssueWrap').style.backgroundColor = hasBlockerIssue ? '#ffe0e0' : '';
   _id('progLbl').textContent = `Record ${idx+1}`;
   _id('progFill').style.width = ((idx+1)/group.length*100) + '%';
 
