@@ -1271,7 +1271,7 @@ body.vqa-mode .vqa-root{bottom:0;}
       <label class="issue-cb-row done-row" id="doneLabel"><input type="checkbox" class="issue-cb" id="cbDone" value="Done">Done</label>
       
       <div style="display:flex;gap:8px">
-        <button class="btn-prev" id="prevBtn" disabled>← Prev</button>
+        <button class="btn-prev" id="prevBtn" disabled style="display:none">← Prev</button>
         <button class="btn-sub" id="nextBtn" onclick="handleFinalSubmit()">Submit & Next →</button>
         <button class="btn-prev" onclick="exitToSetup()">Exit</button>
       </div>
@@ -2478,14 +2478,16 @@ document.addEventListener('keydown', e => {
     if (mode === '360') { if (e.key >= '1' && e.key <= '3') { const cb = _id('qc360_' + e.key); if (cb) { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); e.preventDefault(); } } }
     else { if (e.key >= '1' && e.key <= '9') { const cb = _id('cb' + e.key); if (cb) { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); e.preventDefault(); } } }
     if (e.key === 'Enter') { handleFinalSubmit(); e.preventDefault(); }
+    // Backspace-to-go-back disabled — reviewers should not be able to
+    // navigate to previously-submitted records.
     if (e.key === 'Backspace' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-      if (idx > 0) { idx--; showRecord(); } e.preventDefault();
+      e.preventDefault();
     }
   }
 });
 
 _id('startBtn').onclick = startReview;
-_id('prevBtn').onclick = () => { if(idx > 0) { idx--; showRecord(); } };
+_id('prevBtn').onclick = () => {}; // navigation to previous records disabled
 
 window.onload = () => {
     fp360 = flatpickr("#dateRange360", { mode: "range", dateFormat: "Y-m-d", defaultDate: null, onClose: () => updateCount() });
