@@ -2189,8 +2189,12 @@ function fillFilters(){
 function getFiltered(){
   if (mode === '360') {
     const dates = fp360 ? fp360.selectedDates : [];
-    const startStr = dates[0] ? dates[0].toISOString().split('T')[0] : null;
-    const endStr = dates[1] ? dates[1].toISOString().split('T')[0] : null;
+    const toLocalDateStr = d => {
+      const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+      return `${y}-${m}-${day}`;
+    };
+    const startStr = dates[0] ? toLocalDateStr(dates[0]) : null;
+    const endStr = dates[1] ? toLocalDateStr(dates[1]) : null;
     const userF = _id('userFilter360').value;
     const entF = _id('entFilter360').value;
     const issueType = _id('issueFilter360').value.toLowerCase();
@@ -2230,9 +2234,9 @@ function updateCount(){
 }
 
 function renderTable(data) {
-  let html = `<table><thead><tr><th>Date</th><th>Spin ID</th><th>SKU</th><th>Issues</th><th>Enterprise</th><th>User</th></tr></thead><tbody>`;
+  let html = `<table><thead><tr><th>Date</th><th>Spin ID</th><th>SKU</th><th>Issues</th><th>Enterprise</th></tr></thead><tbody>`;
   data.slice(0, 500).forEach((row) => {
-    html += `<tr><td>${row.date}</td><td><code>${row.img}</code></td><td>${row.sku}</td><td>${row.issue}</td><td>${row.ent}</td><td>${row.u}</td></tr>`;
+    html += `<tr><td>${row.date}</td><td><code>${row.img}</code></td><td>${row.sku}</td><td>${row.issue}</td><td>${row.ent}</td></tr>`;
   });
   _id('tableContainer').innerHTML = html + '</tbody></table>';
 }
@@ -4634,7 +4638,7 @@ document.addEventListener('visibilitychange', () => {
     }
     return _after.apply(this,arguments);
   };
-  var _show=showRecord; showRecord=function(){var x=_show.apply(this,arguments); if(isImg(mode)) setQcHidden(true); return x;};
+  var _show=showRecord; showRecord=function(){var x=_show.apply(this,arguments); if(isImg(mode) || mode==='360') setQcHidden(true); return x;};
   function releaseAll(){ if(!claimedPending.length) return; try{ navigator.sendBeacon(AUDIT_URL, JSON.stringify({action:'auditrelease',imageIds:claimedPending,reviewer:rev()})); }catch(e){} claimedPending=[]; }
   var _exit=exitToSetup; exitToSetup=function(){releaseAll(); return _exit.apply(this,arguments);};
   var _logout=doLogout; doLogout=function(){releaseAll(); return _logout.apply(this,arguments);};
@@ -4775,7 +4779,7 @@ tog();})();
     });
     if(!needAwait) advance();
   };
-  var _show=showRecord; showRecord=function(){var x=_show.apply(this,arguments); if(isImg(mode)){ setQcHidden(true); markActivity(); } return x;};
+  var _show=showRecord; showRecord=function(){var x=_show.apply(this,arguments); if(isImg(mode) || mode==='360'){ setQcHidden(true); markActivity(); } return x;};
   function releaseAll(){ stopHeartbeat(); stopIdleCheck(); if(!claimedPending.length) return; try{ navigator.sendBeacon(AUDIT_URL, JSON.stringify({action:'auditrelease',imageIds:claimedPending,reviewer:rev()})); }catch(e){} claimedPending=[]; }
   var _exit=exitToSetup; exitToSetup=function(){releaseAll(); return _exit.apply(this,arguments);};
   var _logout=doLogout; doLogout=function(){releaseAll(); return _logout.apply(this,arguments);};
