@@ -2137,15 +2137,23 @@ function setMode(m){
 
 async function loadData() {
   setLoading(true);
-  const url = mode==='qc'?QC_URL:(mode==='360'?THREE60_URL:EDIT_URL);
+  // Capture which mode THIS call is for. mode is a global that can change
+  // while this async fetch/parse is still in flight (e.g. the user quickly
+  // switches tabs) — without this guard, an older in-flight load for a
+  // different mode can finish LAST and silently overwrite `raw` with the
+  // wrong dataset even though the UI has already moved on to a new mode
+  // (this was causing "360 tab selected but showing image data").
+  const requestMode = mode;
+  const url = requestMode==='qc'?QC_URL:(requestMode==='360'?THREE60_URL:EDIT_URL);
   try {
     const response = await fetch(url + (url.includes('?')?'&':'?') + 'cb=' + Date.now());
     const csvData = await response.text();
     Papa.parse(csvData, {
       header: true, skipEmptyLines: true,
       complete: async res => {
+        if (mode !== requestMode) return; // stale response for a mode we've since left — discard
         raw = res.data.map(r => {
-          if (mode === '360') {
+          if (requestMode === '360') {
             const issueField = getRowVal(r, ['Issues', 'validation_failure_reason', 'vdp_validation_failure_reason']);
             return { 
                 ...r, ent: getRowVal(r, 'Enterprise'), sku: getRowVal(r, 'SKU_ID'), img: getRowVal(r, 'Spin_ID'), 
@@ -2153,7 +2161,7 @@ async function loadData() {
                 status: getRowVal(r, ['status', 'Status']), date: getRowVal(r, 'Date')
             };
           }
-          const isQc = mode === 'qc';
+          const isQc = requestMode === 'qc';
           const map = isQc ? FMAP.qc : FMAP.edited;
           return {
             ent: getRowVal(r, map.ent), img: getRowVal(r, map.img), sku: getRowVal(r, map.sku),
@@ -2165,6 +2173,7 @@ async function loadData() {
           };
         });
         await fetchReviewedIds();           // hide image/spin IDs already reviewed by anyone
+        if (mode !== requestMode) return;   // mode may have changed again during fetchReviewedIds()
         fillFilters(); updateCount(); setLoading(false);
         fetchProductionCount();
       }
