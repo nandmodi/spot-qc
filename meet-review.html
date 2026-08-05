@@ -444,7 +444,14 @@ function fill(id, vals, append=false) {
 }
 
 function initFlatpickr() {
-  fp = flatpickr('#dateRangeFilter', { mode:'range', dateFormat:'Y-m-d', onChange: applyFilters });
+  // Default view: last 30 days from today, so the tool always opens showing
+  // the most recent activity rather than the full unfiltered history.
+  // Users can still pick any other range afterward — that selection takes
+  // over normally via onChange.
+  const today = new Date();
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(today.getDate() - 30);
+  fp = flatpickr('#dateRangeFilter', { mode:'range', dateFormat:'Y-m-d', defaultDate: [thirtyDaysAgo, today], onChange: applyFilters });
 }
 
 function switchMode(m) {
