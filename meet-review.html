@@ -578,7 +578,7 @@ function render360() {
   const r = filtered360[idx360];
   updateProgress(idx360, filtered360.length);
 
-  const spinUrl = r['spin_url'] || '';
+  const spinUrl = r['Spin_URL'] || r['spin_url'] || r['Spin_Url'] || r['SPIN_URL'] || '';
   const spinBlock = spinUrl
     ? `<div class="spin-pane"><iframe src="${spinUrl}" allowfullscreen allow="accelerometer; gyroscope; autoplay"></iframe></div>`
     : `<div class="spin-pane"><div class="spin-err"><span>No 360 spin URL</span></div></div>`;
