@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Spyne Â· Meet Review</title>
+<title>Spyne ÃÂ· Meet Review</title>
 <link rel="icon" href="https://spyne-prod-ai.s3.us-east-1.amazonaws.com/ai-dataset/2025/logo/unnamed.png"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
@@ -46,7 +46,7 @@ body{
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--line2);border-radius:3px}
 
-/* ââ TOPBAR 44px ââ */
+/* Ã¢ÂÂÃ¢ÂÂ TOPBAR 44px Ã¢ÂÂÃ¢ÂÂ */
 .topbar{
   height:44px;flex-shrink:0;
   background:var(--bg1);border-bottom:1px solid var(--line);
@@ -65,7 +65,7 @@ body{
 .t-space{flex:1}
 .t-count{font-family:var(--mono);font-size:10.5px;color:var(--t3);background:var(--bg2);border:1px solid var(--line);border-radius:5px;padding:2px 8px;white-space:nowrap}
 
-/* ââ MODE TABS 44px ââ */
+/* Ã¢ÂÂÃ¢ÂÂ MODE TABS 44px Ã¢ÂÂÃ¢ÂÂ */
 .mode-tabs{
   height:44px;flex-shrink:0;
   background:var(--bg1);border-bottom:1px solid var(--line);
@@ -85,7 +85,7 @@ body{
   box-shadow:0 2px 8px rgba(37,99,235,.25);
 }
 
-/* ââ FILTER BAR auto ââ */
+/* Ã¢ÂÂÃ¢ÂÂ FILTER BAR auto Ã¢ÂÂÃ¢ÂÂ */
 .filter-bar{
   flex-shrink:0;
   background:var(--bg1);border-bottom:1px solid var(--line);
@@ -114,7 +114,7 @@ body{
 .fi-right{margin-left:auto;display:flex;align-items:center;gap:6px}
 .rec-count{font-family:var(--mono);font-size:10.5px;color:var(--t3)}
 
-/* ââ LOAD STRIP ââ */
+/* Ã¢ÂÂÃ¢ÂÂ LOAD STRIP Ã¢ÂÂÃ¢ÂÂ */
 .load-strip{
   display:none;flex-shrink:0;
   align-items:center;gap:8px;padding:5px 14px;
@@ -124,14 +124,14 @@ body{
 .load-spin{width:11px;height:11px;border:2px solid var(--line2);border-top-color:var(--accent);border-radius:50%;animation:rot .7s linear infinite;flex-shrink:0}
 @keyframes rot{to{transform:rotate(360deg)}}
 
-/* ââ MAIN AREA fills all remaining height ââ */
+/* Ã¢ÂÂÃ¢ÂÂ MAIN AREA fills all remaining height Ã¢ÂÂÃ¢ÂÂ */
 .main-area{
   flex:1;min-height:0;
   display:flex;flex-direction:column;
   overflow:hidden;
 }
 
-/* ââ META PANEL (single compact row) ââ */
+/* Ã¢ÂÂÃ¢ÂÂ META PANEL (single compact row) Ã¢ÂÂÃ¢ÂÂ */
 .meta-panel{
   flex-shrink:0;
   background:var(--bg1);
@@ -161,7 +161,7 @@ body{
 .mc-sub-l{font-size:7.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--t4);min-width:38px;flex-shrink:0}
 .mc-sub-v{font-family:var(--mono);font-size:10.5px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-/* ââ MEDIA AREA fills rest ââ */
+/* Ã¢ÂÂÃ¢ÂÂ MEDIA AREA fills rest Ã¢ÂÂÃ¢ÂÂ */
 .media-area{
   flex:1;min-height:0;
   display:flex;overflow:hidden;
@@ -202,7 +202,7 @@ body{
 }
 .spin-err span{font-size:12px;opacity:.4;color:#aaa}
 
-/* ââ BOTTOM BAR ââ */
+/* Ã¢ÂÂÃ¢ÂÂ BOTTOM BAR Ã¢ÂÂÃ¢ÂÂ */
 .bottom-stick{
   flex-shrink:0;background:var(--bg1);
   box-shadow:0 -2px 8px rgba(0,0,0,.06);
@@ -256,19 +256,19 @@ body{
   <span class="t-title">Meet Review</span>
   <div class="t-space"></div>
   <div class="t-count hidden" id="tCount"></div>
-  <a class="t-back" href="https://nandmodi.github.io/spot-qc/" target="_self">â Back to QC</a>
+  <a class="t-back" href="https://nandmodi.github.io/spot-qc/" target="_self">Ã¢ÂÂ Back to QC</a>
 </div>
 
 <!-- MODE TABS -->
 <div class="mode-tabs">
-  <div class="mode-tab active" id="tabImages" onclick="switchMode('images')">ð¼ Images</div>
-  <div class="mode-tab" id="tab360" onclick="switchMode('360')">360Â° Spin</div>
+  <div class="mode-tab active" id="tabImages" onclick="switchMode('images')">Ã°ÂÂÂ¼ Images</div>
+  <div class="mode-tab" id="tab360" onclick="switchMode('360')">360ÃÂ° Spin</div>
 </div>
 
 <!-- LOAD STRIP -->
 <div class="load-strip" id="loadStrip">
   <div class="load-spin"></div>
-  <span id="loadMsg">Loading recordsâ¦</span>
+  <span id="loadMsg">Loading recordsÃ¢ÂÂ¦</span>
 </div>
 
 <!-- FILTER BAR -->
@@ -281,14 +281,14 @@ body{
   <div class="fi hidden" id="fi-qcby"><span class="fi-lbl">QC By</span><select id="qcByFilter" class="fi-sel"><option value="">All</option></select></div>
   <div class="fi-right">
     <span class="rec-count" id="recCount"></span>
-    <button class="btn-reset" id="resetBtn">â Reset</button>
+    <button class="btn-reset" id="resetBtn">Ã¢ÂÂ Reset</button>
   </div>
 </div>
 
 <!-- MAIN AREA -->
 <div class="main-area" id="mainArea">
   <div class="empty-state">
-    <div class="empty-t">Loading recordsâ¦</div>
+    <div class="empty-t">Loading recordsÃ¢ÂÂ¦</div>
     <div class="empty-b">Fetching data from sheet.</div>
   </div>
 </div>
@@ -300,10 +300,10 @@ body{
     <div class="prog-track"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
     <div class="prog-pct" id="progPct">0%</div>
     <div class="nav-space"></div>
-    <div class="kbd-hint"><span class="kbd">â</span>Prev</div>
-    <button class="btn-prev" id="prevBtn" disabled>â Prev</button>
-    <button class="btn-next" id="nextBtn">Next â</button>
-    <div class="kbd-hint"><span class="kbd">â</span>Next</div>
+    <div class="kbd-hint"><span class="kbd">Ã¢ÂÂ</span>Prev</div>
+    <button class="btn-prev" id="prevBtn" disabled>Ã¢ÂÂ Prev</button>
+    <button class="btn-next" id="nextBtn">Next Ã¢ÂÂ</button>
+    <div class="kbd-hint"><span class="kbd">Ã¢ÂÂ</span>Next</div>
     <div class="kbd-hint"><span class="kbd">Enter</span>Next</div>
   </div>
   <div class="managed-ribbon">Managed by <span>kishor@spyne.ai</span></div>
@@ -312,7 +312,7 @@ body{
 <script>
 const CSV_IMAGES = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSXAlw0cMgT7fInzBKH1xJcfL67Ev9Fq0cyUwpg9WJc4OYtn-P6iRsBi8Xqmdzib8MRwNLtPsS0X2Qx/pub?gid=1092667553&single=true&output=csv';
 const CSV_360   = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSXAlw0cMgT7fInzBKH1xJcfL67Ev9Fq0cyUwpg9WJc4OYtn-P6iRsBi8Xqmdzib8MRwNLtPsS0X2Qx/pub?gid=1075238960&single=true&output=csv';
-const PROXY     = 'https://media.spyneai.com/unsafe/600x600/filters:format(webp)/';
+const PROXY     = 'https://media.spyneai.com/unsafe/fit-in/600x600/filters:format(webp)/';
 
 let mode = 'images';
 let imagesData = [], data360 = [];
@@ -336,8 +336,8 @@ function showLoad(msg) {
 }
 function hideLoad() { document.getElementById('loadStrip').style.display = 'none'; }
 
-// ââ LOAD
-showLoad('Loading Images recordsâ¦');
+// Ã¢ÂÂÃ¢ÂÂ LOAD
+showLoad('Loading Images recordsÃ¢ÂÂ¦');
 fetch(CSV_IMAGES)
   .then(r => r.text())
   .then(csv => {
@@ -356,7 +356,7 @@ fetch(CSV_IMAGES)
   .catch(() => { hideLoad(); showError(); });
 
 function loadData360() {
-  showLoad('Loading 360 recordsâ¦');
+  showLoad('Loading 360 recordsÃ¢ÂÂ¦');
   fetch(CSV_360)
     .then(r => r.text())
     .then(csv => {
@@ -396,7 +396,7 @@ function resolveKey(data, aliases) {
     const hit = keys.find(k => normHdr(k) === t);
     if (hit) return hit;
   }
-  return aliases[0]; // fallback (may not exist -> renders as â)
+  return aliases[0]; // fallback (may not exist -> renders as Ã¢ÂÂ)
 }
 
 // Backwards-compatible single-target lookup (used by 360 filters)
@@ -445,7 +445,7 @@ function fill(id, vals, append=false) {
 function initFlatpickr() {
   // Default view: last 30 days from today, so the tool always opens showing
   // the most recent activity rather than the full unfiltered history.
-  // Users can still pick any other range afterward â that selection takes
+  // Users can still pick any other range afterward Ã¢ÂÂ that selection takes
   // over normally via onChange.
   const today = new Date();
   const thirtyDaysAgo = new Date();
@@ -547,16 +547,16 @@ function renderImages() {
 
   area.innerHTML = `
     <div class="meta-panel">
-      <div class="mc"><span class="mc-l">Date</span><span class="mc-v">${(r['Timestamp']||'').split(' ')[0]||'â'}</span></div>
-      <div class="mc"><span class="mc-l">Enterprise</span><span class="mc-v">${r['Enterprise']||'â'}</span></div>
+      <div class="mc"><span class="mc-l">Date</span><span class="mc-v">${(r['Timestamp']||'').split(' ')[0]||'Ã¢ÂÂ'}</span></div>
+      <div class="mc"><span class="mc-l">Enterprise</span><span class="mc-v">${r['Enterprise']||'Ã¢ÂÂ'}</span></div>
       <div class="mc-double">
-        <div class="mc-sub"><span class="mc-sub-l">SKU ID</span><span class="mc-sub-v">${r[imgKeys.sku]||'â'}</span></div>
-        <div class="mc-sub"><span class="mc-sub-l">Image ID</span><span class="mc-sub-v">${r[imgKeys.imageId]||'â'}</span></div>
+        <div class="mc-sub"><span class="mc-sub-l">SKU ID</span><span class="mc-sub-v">${r[imgKeys.sku]||'Ã¢ÂÂ'}</span></div>
+        <div class="mc-sub"><span class="mc-sub-l">Image ID</span><span class="mc-sub-v">${r[imgKeys.imageId]||'Ã¢ÂÂ'}</span></div>
       </div>
-      <div class="mc"><span class="mc-l">QC User</span><span class="mc-v">${r[imgKeys.qc]||'â'}</span></div>
-      <div class="mc"><span class="mc-l">Editor</span><span class="mc-v">${r[imgKeys.editor]||'â'}</span></div>
-      <div class="mc mc-warn"><span class="mc-l">â  Issue</span><span class="mc-v">${r[imgKeys.issue]||'â'}</span></div>
-      <div class="mc mc-wide"><span class="mc-l">Comment (Submit Issue)</span><span class="mc-v">${r[imgKeys.comment]||'â'}</span></div>
+      <div class="mc"><span class="mc-l">QC User</span><span class="mc-v">${r[imgKeys.qc]||'Ã¢ÂÂ'}</span></div>
+      <div class="mc"><span class="mc-l">Editor</span><span class="mc-v">${r[imgKeys.editor]||'Ã¢ÂÂ'}</span></div>
+      <div class="mc mc-warn"><span class="mc-l">Ã¢ÂÂ  Issue</span><span class="mc-v">${r[imgKeys.issue]||'Ã¢ÂÂ'}</span></div>
+      <div class="mc mc-wide"><span class="mc-l">Comment (Submit Issue)</span><span class="mc-v">${r[imgKeys.comment]||'Ã¢ÂÂ'}</span></div>
     </div>
     <div class="media-area">
       <div class="images-row">
@@ -585,16 +585,16 @@ function render360() {
 
   area.innerHTML = `
     <div class="meta-panel">
-      <div class="mc"><span class="mc-l">Date</span><span class="mc-v">${(r['Timestamp']||'').split(' ')[0]||'â'}</span></div>
-      <div class="mc"><span class="mc-l">Enterprise</span><span class="mc-v">${r['Enterprise']||'â'}</span></div>
+      <div class="mc"><span class="mc-l">Date</span><span class="mc-v">${(r['Timestamp']||'').split(' ')[0]||'Ã¢ÂÂ'}</span></div>
+      <div class="mc"><span class="mc-l">Enterprise</span><span class="mc-v">${r['Enterprise']||'Ã¢ÂÂ'}</span></div>
       <div class="mc-double">
-        <div class="mc-sub"><span class="mc-sub-l">SKU ID</span><span class="mc-sub-v">${r['SKU_ID']||'â'}</span></div>
-        <div class="mc-sub"><span class="mc-sub-l">Spin ID</span><span class="mc-sub-v">${r['Spin_ID']||'â'}</span></div>
+        <div class="mc-sub"><span class="mc-sub-l">SKU ID</span><span class="mc-sub-v">${r['SKU_ID']||'Ã¢ÂÂ'}</span></div>
+        <div class="mc-sub"><span class="mc-sub-l">Spin ID</span><span class="mc-sub-v">${r['Spin_ID']||'Ã¢ÂÂ'}</span></div>
       </div>
-      <div class="mc"><span class="mc-l">User</span><span class="mc-v">${r[user360Key]||'â'}</span></div>
-      <div class="mc mc-warn"><span class="mc-l">â  Issues</span><span class="mc-v">${r['Issues']||'â'}</span></div>
-      <div class="mc"><span class="mc-l">Reason</span><span class="mc-v">${r['Reason']||'â'}</span></div>
-      <div class="mc"><span class="mc-l">Reviewer (QC By)</span><span class="mc-v">${r[qcByKey]||'â'}</span></div>
+      <div class="mc"><span class="mc-l">User</span><span class="mc-v">${r[user360Key]||'Ã¢ÂÂ'}</span></div>
+      <div class="mc mc-warn"><span class="mc-l">Ã¢ÂÂ  Issues</span><span class="mc-v">${r['Issues']||'Ã¢ÂÂ'}</span></div>
+      <div class="mc"><span class="mc-l">Reason</span><span class="mc-v">${r['Reason']||'Ã¢ÂÂ'}</span></div>
+      <div class="mc"><span class="mc-l">Reviewer (QC By)</span><span class="mc-v">${r[qcByKey]||'Ã¢ÂÂ'}</span></div>
     </div>
     <div class="media-area">
       ${spinBlock}
