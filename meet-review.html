@@ -361,7 +361,10 @@ function loadData360() {
     .then(r => r.text())
     .then(csv => {
       data360 = Papa.parse(csv, {header:true, skipEmptyLines:true}).data
-                    .filter(r => (r['Reason']||'').trim() !== 'Done');
+                    // Reason can be a compound value like "Done | and tilt" (verdict
+                    // plus an extra note) — checking just the first " | "-separated
+                    // segment correctly excludes those alongside plain "Done".
+                    .filter(r => ((r['Reason']||'').split('|')[0]||'').trim() !== 'Done');
       populate360Filters(data360);
       filtersReady['360'] = true;
       if (mode === '360') applyFilters();
