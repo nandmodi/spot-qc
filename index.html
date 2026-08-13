@@ -2558,9 +2558,6 @@ function initGoogleSignIn() {
     });
     google.accounts.id.renderButton(_id('googleSignInDiv'), { theme: 'outline', size: 'large', width: 280 });
 
-    // Diagnostic: Google's button can silently do nothing on click if the
-    // browser blocks third-party cookies or has no active Google session in
-    // Chrome itself. This surfaces the *actual* reason instead of silence.
     google.accounts.id.prompt((notification) => {
         if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
             var reason = notification.getNotDisplayedReason ? notification.getNotDisplayedReason() : (notification.getSkippedReason ? notification.getSkippedReason() : 'unknown');
