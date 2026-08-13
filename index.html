@@ -2474,7 +2474,7 @@ async function handleGoogleCredential(response) {
     const payload = decodeJwtPayload(response.credential);
     const email = (payload.email || '').toLowerCase();
     try {
-        const r = await fetch(AUDIT_URL + '?z=checklogin11&email=' + encodeURIComponent(email));
+        const r = await fetch('https://script.google.com/macros/s/AKfycbye_GzIkPXMGsVKt9-biOzUkTh-OzAdxgpuevpMRBHsEHeOYsOBMh-Q1q2mSYEmgrBp/exec' + '?z=checklogin11&email=' + encodeURIComponent(email));
         const data = await r.json();
         if (data.allowed) completeLogin(data.name);
         else _id('loginErr').style.display = 'block';
