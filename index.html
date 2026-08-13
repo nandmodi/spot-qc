@@ -2124,6 +2124,58 @@ function setMode(m){
   loadData();
 }
 
+// --- Daily IndexedDB cache for the big QC-Pass/Re-Edit/360 CSV dataset ---
+// The source data only meaningfully changes once a day (7 AM import), but
+// loadData() used to re-fetch + re-parse the whole ~100k+ row CSV on every
+// "Start Review" click. This caches the parsed `raw` array per mode, keyed
+// by today's IST date, so repeat loads on the same day are instant. It
+// auto-invalidates the moment the date rolls over.
+const RAW_CACHE_DB = 'SpotQCRawCache';
+const RAW_CACHE_STORE = 'rawData';
+
+function rawCacheTodayKey(modeKey) {
+  const now = new Date();
+  const istMs = now.getTime() + (5.5 * 60 * 60 * 1000) + (now.getTimezoneOffset() * 60000);
+  const dateStr = new Date(istMs).toISOString().slice(0, 10);
+  return modeKey + '_' + dateStr;
+}
+
+function openRawCacheDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(RAW_CACHE_DB, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(RAW_CACHE_STORE)) db.createObjectStore(RAW_CACHE_STORE);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function getCachedRawForMode(modeKey) {
+  try {
+    const db = await openRawCacheDB();
+    return await new Promise((resolve) => {
+      const tx = db.transaction(RAW_CACHE_STORE, 'readonly');
+      const req = tx.objectStore(RAW_CACHE_STORE).get(rawCacheTodayKey(modeKey));
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    });
+  } catch (e) { return null; }
+}
+
+async function saveCachedRawForMode(modeKey, data) {
+  try {
+    const db = await openRawCacheDB();
+    await new Promise((resolve) => {
+      const tx = db.transaction(RAW_CACHE_STORE, 'readwrite');
+      const req = tx.objectStore(RAW_CACHE_STORE).put(data, rawCacheTodayKey(modeKey));
+      req.onsuccess = () => resolve();
+      req.onerror = () => resolve();
+    });
+  } catch (e) { /* cache write failures should never break the actual data-load flow */ }
+}
+
 async function loadData() {
   setLoading(true);
   // Capture which mode THIS call is for. mode is a global that can change
@@ -2134,6 +2186,20 @@ async function loadData() {
   // (this was causing "360 tab selected but showing image data").
   const requestMode = mode;
   const url = requestMode==='qc'?QC_URL:(requestMode==='360'?THREE60_URL:EDIT_URL);
+
+  // Cache-first: if today's data for this mode is already cached, skip the
+  // network fetch + CSV parse entirely and use it directly.
+  const cachedRaw = await getCachedRawForMode(requestMode);
+  if (cachedRaw && cachedRaw.length) {
+    if (mode !== requestMode) { setLoading(false); return; }
+    raw = cachedRaw;
+    await fetchReviewedIds();
+    if (mode !== requestMode) return;
+    fillFilters(); updateCount(); setLoading(false);
+    fetchProductionCount();
+    return;
+  }
+
   try {
     const response = await fetch(url + (url.includes('?')?'&':'?') + 'cb=' + Date.now());
     const csvData = await response.text();
@@ -2161,6 +2227,7 @@ async function loadData() {
             status: getRowVal(r, ['status', 'Status']), action: getRowVal(r, 'latest_image_action')
           };
         });
+        saveCachedRawForMode(requestMode, raw); // fire-and-forget; never blocks the UI
         await fetchReviewedIds();           // hide image/spin IDs already reviewed by anyone
         if (mode !== requestMode) return;   // mode may have changed again during fetchReviewedIds()
         fillFilters(); updateCount(); setLoading(false);
