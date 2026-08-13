@@ -1135,6 +1135,7 @@ body.vqa-mode .vqa-root{bottom:0;}
 .vqa-root #statsRow{padding:8px 10px;border-bottom:1px solid var(--border);display:flex;gap:5px;flex-wrap:wrap;flex-shrink:0;}
 
 </style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -1143,20 +1144,8 @@ body.vqa-mode .vqa-root{bottom:0;}
     <img src="https://spyne-prod-ai.s3.us-east-1.amazonaws.com/ai-dataset/2025/download.jpeg" style="height:38px; width:auto; margin-bottom:28px; display:block;" alt="Spyne Logo">
     <div class="login-h">Welcome back</div>
     <div class="login-sub">Sign in to QC Review</div>
-    <div class="login-err" id="loginErr">Incorrect name or password.</div>
-    <div class="field">
-      <label class="field-lbl">Your name</label>
-      <select id="loginName" class="field-in">
-        <option value="">— Select —</option>
-        <option>Nand Kishor</option><option>Ranbir Manoranjan</option><option>Nitin Kumar</option>
-        <option>Praveen Agarwal</option><option>Raj Tripathi</option><option>Rohit Chauhan</option><option>Ajay Devrani</option><option>Shweta Gupta</option><option>Dhruv Kumar</option><option>Tannu Singh</option><option>Anup Gupta</option><option>Khushi Gautam</option><option>Vijay Gautam</option><option>Karmendra Singh</option>
-      </select>
-    </div>
-    <div class="field">
-      <label class="field-lbl">Password</label>
-      <input type="password" id="loginPw" class="field-in" placeholder="Enter password"/>
-    </div>
-    <button class="btn-login" id="loginBtn" style="margin-top:20px">Sign in →</button>
+    <div class="login-err" id="loginErr">Your Google account isn't on the approved list.</div>
+    <div id="googleSignInDiv" style="margin-top:24px; display:flex; justify-content:center;"></div>
   </div>
 </div>
 
@@ -1816,7 +1805,7 @@ function prefetch(src) {
   const i = new Image(); i.src = src;
 }
 
-const PWDS = {"Nand Kishor":"spyne@123","Ranbir Manoranjan":"spyne@123","Nitin Kumar":"spyne@123","Praveen Agarwal":"spyne@123","Raj Tripathi":"spyne@123","Rohit Chauhan":"spyne@123","Ajay Devrani":"spyne@123","Khushi Gautam":"khushi@123","Dhruv Kumar":"dhruv@123","Tannu Singh":"tannu@123","Anup Gupta":"anup@123","Vijay Gautam":"vijay@123","Karmendra Singh":"karmendra@123","Shweta Gupta":"shweta@12345"};
+// PWDS removed — replaced by server-side Google Sign-In allowlist check (see checklogin11 endpoint).
 
 function _id(id){ return document.getElementById(id); }
 
@@ -2464,20 +2453,45 @@ function setLoading(s) { _id('loadStrip').style.display = s ? 'flex' : 'none'; }
 function exitToSetup(){ submittingNow = false; _id('reviewPage').style.display = 'none'; _id('setupPage').style.display = 'flex'; }
 function doLogout(){ location.reload(); }
 
-const doLogin = () => {
-    const name = _id('loginName').value, pw = _id('loginPw').value;
-    if(PWDS[name] === pw){
-        user = name; _id('tUser').textContent = name;
-        _id('tAvatar').textContent = name.split(' ').map(n=>n[0]).join('').toUpperCase();
-        _id('loginPage').style.display = 'none'; _id('app').style.display = 'flex';
-        setMode('qc');
-        flushSpotQueue();                       // retry any responses stashed offline
-        setInterval(flushSpotQueue, 30000);     // keep retrying every 30s
-    } else _id('loginErr').style.display='block';
-};
+function completeLogin(name) {
+    user = name; _id('tUser').textContent = name;
+    _id('tAvatar').textContent = name.split(' ').map(n=>n[0]).join('').toUpperCase();
+    _id('loginPage').style.display = 'none'; _id('app').style.display = 'flex';
+    setMode('qc');
+    flushSpotQueue();                       // retry any responses stashed offline
+    setInterval(flushSpotQueue, 30000);     // keep retrying every 30s
+}
 
-_id('loginBtn').onclick = doLogin;
-_id('loginPw').onkeydown = e => { if(e.key==='Enter') doLogin(); };
+function decodeJwtPayload(token) {
+    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
+        '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+    ).join(''));
+    return JSON.parse(jsonPayload);
+}
+
+async function handleGoogleCredential(response) {
+    const payload = decodeJwtPayload(response.credential);
+    const email = (payload.email || '').toLowerCase();
+    try {
+        const r = await fetch(AUDIT_URL + '?z=checklogin11&email=' + encodeURIComponent(email));
+        const data = await r.json();
+        if (data.allowed) completeLogin(data.name);
+        else _id('loginErr').style.display = 'block';
+    } catch (e) {
+        _id('loginErr').style.display = 'block';
+    }
+}
+
+function initGoogleSignIn() {
+    if (!window.google || !google.accounts || !google.accounts.id) { setTimeout(initGoogleSignIn, 100); return; }
+    google.accounts.id.initialize({
+        client_id: '713197071795-ceobmc61393fvol6kul5vm7sfi1e7vem.apps.googleusercontent.com',
+        callback: handleGoogleCredential
+    });
+    google.accounts.id.renderButton(_id('googleSignInDiv'), { theme: 'outline', size: 'large', width: 280 });
+}
+initGoogleSignIn();
 
 document.querySelectorAll('.issue-cb').forEach(cb => {
   cb.addEventListener('change', e => {
