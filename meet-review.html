@@ -422,7 +422,8 @@ function resolveImageKeys(data) {
     comment: resolveKey(data, ['submit issue','comment','remark','remarks','submit_issue']),
     input:   resolveKey(data, ['input image','input_image','input','original image','original','before image','before']),
     ai:      resolveKey(data, ['ai image','ai_image','ai output','ai','output image','ai output image','output']),
-    final:   resolveKey(data, ['final image','final_image','final','output final','corrected image','after image','after'])
+    final:   resolveKey(data, ['final image','final_image','final','output final','corrected image','after image','after']),
+    reviewer: resolveKey(data, ['login_user','login user','loginuser','reviewer'])
   };
 }
 
@@ -542,7 +543,7 @@ function renderImages() {
     return `<div class="img-pane">
       <div class="img-pane-label">${label}</div>
       ${has
-        ? `<img src="${PROXY+src}" alt="${label}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+        ? `<img src="${PROXY+src}" alt="${label}" data-direct="${src}" onerror="if(!this.dataset.triedDirect){this.dataset.triedDirect='1';this.src=this.dataset.direct;}else{this.style.display='none';this.nextElementSibling.style.display='flex';}"/>
            <div class="img-err" style="display:none"><span>No image</span></div>`
         : `<div class="img-err"><span>No image</span></div>`}
     </div>`;
@@ -558,6 +559,7 @@ function renderImages() {
       </div>
       <div class="mc"><span class="mc-l">QC User</span><span class="mc-v">${r[imgKeys.qc]||'–'}</span></div>
       <div class="mc"><span class="mc-l">Editor</span><span class="mc-v">${r[imgKeys.editor]||'–'}</span></div>
+      <div class="mc"><span class="mc-l">Reviewer (Login User)</span><span class="mc-v">${r[imgKeys.reviewer]||'–'}</span></div>
       <div class="mc mc-warn"><span class="mc-l">⚠ Issue</span><span class="mc-v">${r[imgKeys.issue]||'–'}</span></div>
       <div class="mc mc-wide"><span class="mc-l">Comment (Submit Issue)</span><span class="mc-v">${r[imgKeys.comment]||'–'}</span></div>
     </div>
