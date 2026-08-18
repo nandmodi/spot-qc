@@ -4014,7 +4014,7 @@ function renderMeta(v) {
     ${mRow('Video ID',v.video_id,true)}${mRow('Enterprise',v.enterprise)}${mRow('Ent. ID',v.enterprise_id)}
     <div class="divider"></div>
     <div class="m-label">QC Info</div>
-    ${mRow('QC User',v.qc_user,false,true)}${mRow('QC Status',qcDisp)}${v.qa_reviewer?mRow('QA Reviewer',v.qa_reviewer):''}
+    ${mRow('QC Status',qcDisp)}${v.qa_reviewer?mRow('QA Reviewer',v.qa_reviewer):''}
     <div class="divider"></div>
     <div class="m-label">Asset Info</div>
     ${mRow('VIN',v.vin||'—')}${mRow('SKU',v.sku||'—',true)}
