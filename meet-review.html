@@ -254,6 +254,10 @@ body{
   .mc-v-blur { filter: blur(5px); transition: filter 0.15s ease; cursor: pointer; user-select: none; }
   .mc-v-blur:hover, .mc-v-blur:focus { filter: blur(0); user-select: text; }
 </style>
+<style>
+  .date-mode-toggle { margin-left: 8px; padding: 4px 10px; font-size: 12px; border: 1px solid #d0d5dd; border-radius: 6px; background: #fff; cursor: pointer; color: #344054; }
+  .date-mode-toggle:hover { background: #f9fafb; }
+</style>
 </head>
 <body class="mr-locked">
 <div id="mrLoginGate">
@@ -289,7 +293,7 @@ body{
 
 <!-- FILTER BAR -->
 <div class="filter-bar">
-  <div class="fi"><span class="fi-lbl">Date Range</span><input type="text" id="dateRangeFilter" class="fi-date-range" placeholder="Select Range"/></div>
+  <div class="fi"><span class="fi-lbl">Date Range</span><input type="text" id="dateRangeFilter" class="fi-date-range" placeholder="Select Range"/><button type="button" id="dateModeToggle" class="date-mode-toggle" title="Switch between date range and a single date" onclick="toggleDateMode()">Single date</button></div>
   <div class="fi"><span class="fi-lbl">Enterprise</span><select id="enterpriseFilter" class="fi-sel"><option value="">All</option></select></div>
   <div class="fi" id="fi-qcuser"><span class="fi-lbl">QC User</span><select id="qcUserFilter" class="fi-sel"><option value="">All</option></select></div>
   <div class="fi" id="fi-editor"><span class="fi-lbl">Editor</span><select id="editingUserFilter" class="fi-sel"><option value="">All</option></select></div>
@@ -462,15 +466,29 @@ function fill(id, vals, append=false) {
   vals.forEach(v => { const o = document.createElement('option'); o.value=v; o.text=v; sel.appendChild(o); });
 }
 
-function initFlatpickr() {
+let dateMode = 'range';
+
+function initFlatpickr(mode) {
   // Default view: last 30 days from today, so the tool always opens showing
   // the most recent activity rather than the full unfiltered history.
   // Users can still pick any other range afterward — that selection takes
-  // over normally via onChange.
+  // over normally via onChange. `mode` lets toggleDateMode() re-init this
+  // in 'single' mode without duplicating the setup logic.
+  dateMode = mode || dateMode;
   const today = new Date();
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(today.getDate() - 30);
-  fp = flatpickr('#dateRangeFilter', { mode:'range', dateFormat:'Y-m-d', defaultDate: [thirtyDaysAgo, today], onChange: applyFilters });
+  const opts = { mode: dateMode, dateFormat:'Y-m-d', onChange: applyFilters };
+  opts.defaultDate = dateMode === 'single' ? [today] : [thirtyDaysAgo, today];
+  if (fp) fp.destroy();
+  fp = flatpickr('#dateRangeFilter', opts);
+  const toggleBtn = document.getElementById('dateModeToggle');
+  if (toggleBtn) toggleBtn.textContent = dateMode === 'range' ? 'Single date' : 'Date range';
+}
+
+function toggleDateMode() {
+  initFlatpickr(dateMode === 'range' ? 'single' : 'range');
+  applyFilters();
 }
 
 function switchMode(m) {
