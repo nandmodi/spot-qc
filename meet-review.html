@@ -250,6 +250,10 @@ body{
   #mrLoginGate { position:fixed; inset:0; z-index:9999; background:#fff; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:18px; font-family:inherit; }
   #mrLoginErr { display:none; color:#c0392b; font-size:14px; max-width:360px; text-align:center; }
 </style>
+<style>
+  .mc-v-blur { filter: blur(5px); transition: filter 0.15s ease; cursor: pointer; user-select: none; }
+  .mc-v-blur:hover, .mc-v-blur:focus { filter: blur(0); user-select: text; }
+</style>
 </head>
 <body class="mr-locked">
 <div id="mrLoginGate">
@@ -571,7 +575,7 @@ function renderImages() {
       </div>
       <div class="mc"><span class="mc-l">QC User</span><span class="mc-v">${r[imgKeys.qc]||'–'}</span></div>
       <div class="mc"><span class="mc-l">Editor</span><span class="mc-v">${r[imgKeys.editor]||'–'}</span></div>
-      <div class="mc"><span class="mc-l">Reviewer (Login User)</span><span class="mc-v">${r[imgKeys.reviewer]||'–'}</span></div>
+      <div class="mc"><span class="mc-l">Reviewer (Login User)</span><span class="mc-v mc-v-blur" title="Hover to reveal">${r[imgKeys.reviewer]||'–'}</span></div>
       <div class="mc mc-warn"><span class="mc-l">⚠ Issue</span><span class="mc-v">${r[imgKeys.issue]||'–'}</span></div>
       <div class="mc mc-wide"><span class="mc-l">Comment (Submit Issue)</span><span class="mc-v">${r[imgKeys.comment]||'–'}</span></div>
     </div>
