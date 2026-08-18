@@ -244,8 +244,20 @@ body{
 .empty-b{font-size:12px}
 .hidden{display:none!important}
 </style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  body.mr-locked > *:not(#mrLoginGate) { display: none !important; }
+  #mrLoginGate { position:fixed; inset:0; z-index:9999; background:#fff; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:18px; font-family:inherit; }
+  #mrLoginErr { display:none; color:#c0392b; font-size:14px; max-width:360px; text-align:center; }
+</style>
 </head>
-<body>
+<body class="mr-locked">
+<div id="mrLoginGate">
+  <img src="https://spyne-prod-ai.s3.us-east-1.amazonaws.com/ai-dataset/2025/download.jpeg" style="height:34px;width:auto;" alt="Spyne">
+  <div style="font-size:18px;font-weight:600;color:#222;">Meet Review — Sign in required</div>
+  <div id="mrLoginErr"></div>
+  <div id="mrGoogleSignInDiv"></div>
+</div>
 
 <!-- TOPBAR -->
 <div class="topbar">
@@ -647,6 +659,51 @@ document.addEventListener('keydown', e => {
 });
 
 initFlatpickr();
+</script>
+<script>
+(function() {
+  var MR_AUDIT_URL = 'https://script.google.com/macros/s/AKfycbye_GzIkPXMGsVKt9-biOzUkTh-OzAdxgpuevpMRBHsEHeOYsOBMh-Q1q2mSYEmgrBp/exec';
+  var MR_CLIENT_ID = '713197071795-ceobmc61393fvol6kul5vm7sfi1e7vem.apps.googleusercontent.com';
+
+  function mrDecodeJwtPayload(token) {
+    var base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    var jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    return JSON.parse(jsonPayload);
+  }
+
+  async function mrHandleGoogleCredential(response) {
+    var payload = mrDecodeJwtPayload(response.credential);
+    var email = (payload.email || '').toLowerCase();
+    try {
+      var r = await fetch(MR_AUDIT_URL + '?z=checkmeetreview17&email=' + encodeURIComponent(email));
+      var data = await r.json();
+      if (data.allowed) {
+        document.body.classList.remove('mr-locked');
+        document.getElementById('mrLoginGate').style.display = 'none';
+      } else {
+        var el = document.getElementById('mrLoginErr');
+        el.textContent = "Your Google account isn't on the approved list for Meet Review.";
+        el.style.display = 'block';
+      }
+    } catch (e) {
+      var el2 = document.getElementById('mrLoginErr');
+      el2.textContent = 'Something went wrong verifying sign-in. Please try again.';
+      el2.style.display = 'block';
+    }
+  }
+
+  function mrInitGoogleSignIn() {
+    if (!window.google || !google.accounts || !google.accounts.id) { setTimeout(mrInitGoogleSignIn, 100); return; }
+    google.accounts.id.initialize({
+      client_id: MR_CLIENT_ID,
+      callback: mrHandleGoogleCredential
+    });
+    google.accounts.id.renderButton(document.getElementById('mrGoogleSignInDiv'), { theme: 'outline', size: 'large', width: 280 });
+  }
+  mrInitGoogleSignIn();
+})();
 </script>
 </body>
 </html>
