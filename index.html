@@ -4775,12 +4775,20 @@ tog();})();
 <script>
 (function(){
   if(typeof setLoading!=='function') return;
-  var _t=null,_p=0;
+  var _t=null,_p=0,_active=false,_real=false;
+  function _txt(){return document.getElementById('loadTxt');}
+  function _strip(){return document.getElementById('loadStrip');}
+  try{
+    var _open=XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open=function(){
+      try{ this.addEventListener('progress',function(e){ if(!_active)return; if(e.lengthComputable&&e.total>0){ _real=true; var _pct=Math.min(99,Math.round(e.loaded/e.total*100)); var _el=_txt(); if(_el)_el.textContent='Loading '+_pct+'%'; } }); }catch(_e){}
+      return _open.apply(this,arguments);
+    };
+  }catch(_e){}
   function set(show){
-    var strip=document.getElementById('loadStrip');
-    var txt=document.getElementById('loadTxt');
-    if(show){ _p=0; if(txt)txt.textContent='Loading 0%'; if(strip)strip.style.display='flex'; if(_t)clearInterval(_t); _t=setInterval(function(){ if(_p<90){ _p+=Math.max(1,Math.round((90-_p)/8)); if(txt)txt.textContent='Loading '+_p+'%'; } },200); }
-    else { if(_t){clearInterval(_t);_t=null;} _p=100; if(txt)txt.textContent='Loading 100%'; setTimeout(function(){ if(strip)strip.style.display='none'; },250); }
+    var strip=_strip(); var txt=_txt();
+    if(show){ _active=true; _real=false; _p=0; if(txt)txt.textContent='Loading 0%'; if(strip)strip.style.display='flex'; if(_t)clearInterval(_t); _t=setInterval(function(){ if(_real)return; if(_p<90){ _p+=Math.max(1,Math.round((90-_p)/8)); if(txt)txt.textContent='Loading '+_p+'%'; } },200); }
+    else { _active=false; if(_t){clearInterval(_t);_t=null;} _p=100; if(txt)txt.textContent='Loading 100%'; setTimeout(function(){ if(strip)strip.style.display='none'; },250); }
   }
   setLoading=window.setLoading=set;
 })();
