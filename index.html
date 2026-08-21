@@ -2125,7 +2125,7 @@ function setMode(m){
 
   exitToSetup();
   raw = []; preloadedIndices.clear();
-  loadData();
+  loadData(true);
 }
 
 // --- Daily IndexedDB cache for the big QC-Pass/Re-Edit/360 CSV dataset ---
@@ -2180,8 +2180,8 @@ async function saveCachedRawForMode(modeKey, data) {
   } catch (e) { /* cache write failures should never break the actual data-load flow */ }
 }
 
-async function loadData() {
-  setLoading(true);
+async function loadData(silent) {
+  if(!silent) setLoading(true);
   // Capture which mode THIS call is for. mode is a global that can change
   // while this async fetch/parse is still in flight (e.g. the user quickly
   // switches tabs) — without this guard, an older in-flight load for a
