@@ -1165,10 +1165,6 @@ body.vqa-mode .vqa-root{bottom:0;}
     </div>
     <div class="t-space"></div>
     <div class="t-chip done-count" id="doneCounter" style="margin-right:6px">Done: 0</div>
-    <button class="btn-qc-status" onclick="openQcStatus()" style="margin-right:6px">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v18H3z"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
-      QC Status
-    </button>
     <a href="https://nandmodi.github.io/spot-qc/meet-review.html" target="_blank" class="btn-sm btn-top-link" style="margin-right:12px">Review</a>
     
     <div class="t-avatar" id="tAvatar">–</div>
@@ -1755,21 +1751,7 @@ async function flushSpotQueue() {
 // fails, the set stays empty and the queue falls back to status filtering — de-dup
 // never blocks the tool.
 let reviewedIds = new Set();
-async function fetchReviewedIds() {
-  reviewedIds = new Set();
-  const url = (mode === '360') ? THREE60_GAS_URL : IMG_GAS_URL;
-  if (!url || url.indexOf('PASTE_') === 0) return;
-  try {
-    const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'action=reviewed&cb=' + Date.now());
-    const j = await r.json();
-    const arr = (j && (j.ids || j.skus)) || [];   // tolerate old/new key names
-    if (Array.isArray(arr)) {
-      arr.forEach(s => { if (s) reviewedIds.add(String(s).trim()); });
-    }
-  } catch (e) {
-    console.warn('reviewed-id fetch failed; de-dup skipped this load', e);
-  }
-}
+async function fetchReviewedIds() { reviewedIds = new Set(); }
 
 const PROXY = "https://media.spyneai.com/unsafe/1200x0/filters:format(webp):quality(80)/";
 
@@ -2193,65 +2175,14 @@ async function saveCachedRawForMode(modeKey, data) {
   } catch (e) { /* cache write failures should never break the actual data-load flow */ }
 }
 
-async function loadData(silent) {
-  if(!silent) setLoading(true);
-  // Capture which mode THIS call is for. mode is a global that can change
-  // while this async fetch/parse is still in flight (e.g. the user quickly
-  // switches tabs) — without this guard, an older in-flight load for a
-  // different mode can finish LAST and silently overwrite `raw` with the
-  // wrong dataset even though the UI has already moved on to a new mode
-  // (this was causing "360 tab selected but showing image data").
-  const requestMode = mode;
-  const url = requestMode==='qc'?QC_URL:(requestMode==='360'?THREE60_URL:EDIT_URL);
-
-  // Cache-first: if today's data for this mode is already cached, skip the
-  // network fetch + CSV parse entirely and use it directly.
-  const cachedRaw = await getCachedRawForMode(requestMode);
-  if (cachedRaw && cachedRaw.length) {
-    if (mode !== requestMode) { setLoading(false); return; }
-    raw = cachedRaw;
-    await fetchReviewedIds();
-    if (mode !== requestMode) return;
-    fillFilters(); updateCount(); setLoading(false);
-    fetchProductionCount();
-    return;
-  }
-
-  try {
-    const response = await fetch(url + (url.includes('?')?'&':'?') + 'cb=' + Date.now());
-    const csvData = await response.text();
-    Papa.parse(csvData, {
-      header: true, skipEmptyLines: true,
-      complete: async res => {
-        if (mode !== requestMode) return; // stale response for a mode we've since left — discard
-        raw = res.data.map(r => {
-          if (requestMode === '360') {
-            const issueField = getRowVal(r, ['Issues', 'validation_failure_reason', 'vdp_validation_failure_reason']);
-            return { 
-                ...r, ent: getRowVal(r, 'Enterprise'), sku: getRowVal(r, 'SKU_ID'), img: getRowVal(r, 'Spin_ID'), 
-                issue: issueField, u: getRowVal(r, 'User'), spin_url: getRowVal(r, 'spin_url'), 
-                status: getRowVal(r, ['status', 'Status']), date: getRowVal(r, 'Date')
-            };
-          }
-          const isQc = requestMode === 'qc';
-          const map = isQc ? FMAP.qc : FMAP.edited;
-          return {
-            ent: getRowVal(r, map.ent), img: getRowVal(r, map.img), sku: getRowVal(r, map.sku),
-            l: getRowVal(r, map.l), m: getRowVal(r, map.m), r: getRowVal(r, map.r),
-            u: getRowVal(r, map.u) || 'N/A', editor: getRowVal(r, ['last_editor_user', 'editor']) || 'N/A',
-            fqc: getRowVal(r, 'first_qc_user') || 'N/A', lqc: getRowVal(r, 'last_qc_user') || 'N/A',
-            issue: isQc ? '' : getRowVal(r, 'rejected_comments'), 
-            status: getRowVal(r, ['status', 'Status']), action: getRowVal(r, 'latest_image_action')
-          };
-        });
-        saveCachedRawForMode(requestMode, raw); // fire-and-forget; never blocks the UI
-        await fetchReviewedIds();           // hide image/spin IDs already reviewed by anyone
-        if (mode !== requestMode) return;   // mode may have changed again during fetchReviewedIds()
-        fillFilters(); updateCount(); setLoading(false);
-        fetchProductionCount();
-      }
-    });
-  } catch (err) { toast('Error loading data', 'err'); setLoading(false); }
+async function loadData(silent){
+  // Data now comes from Supabase (claim_batch / claim_batch_360). The old
+  // Google-Sheet CSV load + Apps Script reviewed-id fetch are no longer used.
+  raw = [];
+  try { fillFilters(); } catch(e){}
+  try { updateCount(); } catch(e){}
+  setLoading(false);
+  fetchProductionCount();
 }
 
 function fillFilters(){
@@ -4801,7 +4732,7 @@ async function supaRPC(fn,args){
     return _after.apply(this,arguments);
   };
   var _show=showRecord; showRecord=function(){var x=_show.apply(this,arguments); if(isImg(mode) || mode==='360') setQcHidden(true); return x;};
-  function releaseAll(){ if(!claimedPending.length) return; try{ navigator.sendBeacon(AUDIT_URL, JSON.stringify({action:'auditrelease',imageIds:claimedPending,reviewer:rev()})); }catch(e){} claimedPending=[]; }
+  function releaseAll(){ if(!claimedPending.length) return; try{ fetch(SUPA_URL+'/rest/v1/rpc/release_claims',{method:'POST',keepalive:true,headers:{apikey:SUPA_ANON,Authorization:'Bearer '+SUPA_ANON,'Content-Type':'application/json'},body:JSON.stringify({p_image_ids:claimedPending})}); }catch(e){} claimedPending=[]; }
   var _exit=exitToSetup; exitToSetup=function(){releaseAll(); return _exit.apply(this,arguments);};
   var _logout=doLogout; doLogout=function(){releaseAll(); return _logout.apply(this,arguments);};
   window.addEventListener('beforeunload', releaseAll);
@@ -4856,7 +4787,7 @@ tog();})();
   var claimedPending=[], auditActive=false;
   var refilling=false;
   var HB_MS=60000, hbTimer=null;
-  function heartbeat(){ if(!claimedPending.length) return; try{ fetch(AUDIT_URL,{method:'POST',mode:'no-cors',keepalive:true,headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'auditheartbeat',imageIds:claimedPending,reviewer:rev()})}); }catch(e){} }
+  function heartbeat(){ /* Apps Script heartbeat removed; Supabase cron + submit-refresh handle stale claims */ }
   function startHeartbeat(){ if(hbTimer) clearInterval(hbTimer); hbTimer=setInterval(heartbeat, HB_MS); }
   function stopHeartbeat(){ if(hbTimer){ clearInterval(hbTimer); hbTimer=null; } }
   var IDLE_MS=15*60*1000, idleTimer=null, lastActivityAt=0;
@@ -4942,7 +4873,7 @@ tog();})();
     if(!needAwait) advance();
   };
   var _show=showRecord; showRecord=function(){var x=_show.apply(this,arguments); if(isImg(mode) || mode==='360'){ setQcHidden(true); markActivity(); } return x;};
-  function releaseAll(){ stopHeartbeat(); stopIdleCheck(); if(!claimedPending.length) return; try{ navigator.sendBeacon(AUDIT_URL, JSON.stringify({action:'auditrelease',imageIds:claimedPending,reviewer:rev()})); }catch(e){} claimedPending=[]; }
+  function releaseAll(){ stopHeartbeat(); stopIdleCheck(); if(!claimedPending.length) return; try{ fetch(SUPA_URL+'/rest/v1/rpc/release_claims',{method:'POST',keepalive:true,headers:{apikey:SUPA_ANON,Authorization:'Bearer '+SUPA_ANON,'Content-Type':'application/json'},body:JSON.stringify({p_image_ids:claimedPending})}); }catch(e){} claimedPending=[]; }
   var _exit=exitToSetup; exitToSetup=function(){releaseAll(); return _exit.apply(this,arguments);};
   var _logout=doLogout; doLogout=function(){releaseAll(); return _logout.apply(this,arguments);};
   window.addEventListener('beforeunload', releaseAll);
