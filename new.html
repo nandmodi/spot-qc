@@ -2401,13 +2401,15 @@ function showRecord(){
 
   if (is360) {
     _id('modalComment360').value = '';
-    var _spin = _id('spinIframe');
-    // Wait for the spin iframe to fully load, THEN start the 5s hold.
-    _spin.onload = function(){ enableSubmit(); };
-    // Safety net: if onload never fires (blocked/slow), enable after 8s.
+    _id('spinIframe').src = r.spin_url;
+    // 360: fixed 8s from spin open (≈3s frames load + 5s review) before submit enables.
     if (safetyTimer) clearTimeout(safetyTimer);
-    safetyTimer = setTimeout(enableSubmit, 8000);
-    _spin.src = r.spin_url;
+    if (submitDelayTimer) clearTimeout(submitDelayTimer);
+    submitDelayTimer = setTimeout(function(){
+      imagesLoaded = true;
+      _id('nextBtn').disabled = false;
+      _id('nextBtn').textContent = "Submit & Next →";
+    }, 8000);
   } else {
     const required = mode === 'qc' ? 2 : 3;
     const imgs = [
