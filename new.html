@@ -1834,13 +1834,19 @@ function getRowVal(row, keysArray) {
 }
 
 function getShiftBoundaries() {
-  const now = new Date();
-  const start = new Date(now);
-  start.setHours(7, 0, 0, 0);
-  if (now.getHours() < 7) { start.setDate(start.getDate() - 1); }
+  // Shift = 6 PM IST to next day 6 PM IST, independent of browser timezone.
+  const istNow = new Date(Date.now() + (5.5 * 60 * 60 * 1000));
+  const start = new Date(istNow);
+  start.setUTCHours(18, 0, 0, 0);               // 6 PM (IST clock)
+  if (istNow.getUTCHours() < 18) {              // before 6 PM IST -> shift began yesterday 6 PM
+    start.setUTCDate(start.getUTCDate() - 1);
+  }
   const end = new Date(start);
-  end.setDate(start.getDate() + 1);
-  return { start, end };
+  end.setUTCDate(start.getUTCDate() + 1);        // +24h
+  // Convert IST-clock boundaries back to real UTC for the API call.
+  const startUTC = new Date(start.getTime() - (5.5 * 60 * 60 * 1000));
+  const endUTC   = new Date(end.getTime()   - (5.5 * 60 * 60 * 1000));
+  return { start: startUTC, end: endUTC };
 }
 
 function parseGSheetTimestamp(str) {
@@ -2349,15 +2355,13 @@ function enableSubmit() {
     if (imagesLoaded) return;
     if (safetyTimer) clearTimeout(safetyTimer);
     if (submitDelayTimer) clearTimeout(submitDelayTimer);
-    // Require the reviewer to actually look at the image for at least
-    // 2 seconds after it finishes loading before they can submit.
-    // handleFinalSubmit() gates on imagesLoaded directly, so delaying it
-    // here covers both the Submit button click and the Enter-key shortcut.
+    // Hold before submit is enabled: 360 = 5s, images = 1s.
+    var holdMs = (mode === '360') ? 5000 : 1000;
     submitDelayTimer = setTimeout(() => {
       imagesLoaded = true;
       _id('nextBtn').disabled = false;
       _id('nextBtn').textContent = "Submit & Next →";
-    }, 2000);
+    }, holdMs);
 }
 
 function checkAllLoaded() {
