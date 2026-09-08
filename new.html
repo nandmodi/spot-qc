@@ -1209,6 +1209,8 @@ body.vqa-mode .vqa-root{bottom:0;}
     </div>
     
     <div class="load-strip" id="loadStrip"><div class="spin"></div><span id="loadTxt">Fetching data…</span></div>
+
+    <div id="setupStats" style="padding:16px 18px 0;"></div>
     
     <div id="tableContainer" class="table-wrap hidden"></div>
     <div id="emptySetupMsg" style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--t4)">Select filters and click Start Review.</div>
@@ -4774,7 +4776,7 @@ async function supaRPC(fn,args){
     try{ if(!raw||raw.length===0) loadData(); }catch(e){}
     waitRaw(function(){
       fetchClaim().then(function(rows){
-        if(!rows.length){ if(typeof toast==='function') toast('Is tab me audit item nahi bacha'); return; }
+        if(!rows.length){ if(typeof toast==='function') toast('No more items to audit in this tab'); return; }
         group.length=0; for(var k=0;k<rows.length;k++) group.push(rows[k]);
         idx=0; showReviewScreen(); showRecord();
       });
@@ -4849,7 +4851,7 @@ tog();})();
   function stopHeartbeat(){ if(hbTimer){ clearInterval(hbTimer); hbTimer=null; } }
   var IDLE_MS=15*60*1000, idleTimer=null, lastActivityAt=0;
   function markActivity(){ lastActivityAt=Date.now(); }
-  function idleCheck(){ if(!claimedPending.length) return; if(Date.now()-lastActivityAt>IDLE_MS){ if(typeof toast==='function') toast('15 min se activity nahi, aapka lot release ho gaya'); releaseAll(); } }
+  function idleCheck(){ if(!claimedPending.length) return; if(Date.now()-lastActivityAt>IDLE_MS){ if(typeof toast==='function') toast('No activity for 15 minutes — your batch has been released'); releaseAll(); } }
   function startIdleCheck(){ if(idleTimer) clearInterval(idleTimer); markActivity(); idleTimer=setInterval(idleCheck, 30000); }
   function stopIdleCheck(){ if(idleTimer){ clearInterval(idleTimer); idleTimer=null; } }
   var isImg=function(m){return !!IMAGE_MODES[m];};
@@ -4884,7 +4886,7 @@ tog();})();
     try{ setLoading(true); }catch(e){}
     fetchClaim().then(function(rows){
       try{ setLoading(false); }catch(e){}
-      if(!rows.length){ if(typeof toast==='function') toast('Is tab me audit item nahi bacha'); return; }
+      if(!rows.length){ if(typeof toast==='function') toast('No more items to audit in this tab'); return; }
       group.length=0; for(var k=0;k<rows.length;k++) group.push(rows[k]);
       idx=0; showReviewScreen(); showRecord();
       startHeartbeat();
@@ -4949,6 +4951,20 @@ tog();})();
 <!-- ===== END RE-QC AUDIT ADD-ON ===== -->
 
 
+<!-- ===== 360 SPIN FOCUS (arrow/drag inside, Enter outside) ===== -->
+<script>
+(function(){
+  var f=document.getElementById('spinIframe');
+  if(!f) return;
+  var area=document.getElementById('spinArea');
+  // Mouse over the spin -> focus the iframe so arrow keys + drag rotate the car.
+  f.addEventListener('mouseenter', function(){ try{ f.focus(); }catch(e){} });
+  // Mouse leaves the spin -> return focus to the page so Enter submits.
+  var back=function(){ try{ window.focus(); document.body.focus && document.body.setAttribute('tabindex','-1'); document.body.focus && document.body.focus(); }catch(e){} };
+  f.addEventListener('mouseleave', back);
+  if(area) area.addEventListener('mouseleave', back);
+})();
+</script>
 <!-- ===== 360 SUPABASE ADD-ON ===== -->
 <script>
 /* 360: claim from pool_360 / submit to reviews_360 (Supabase) */
@@ -4976,7 +4992,7 @@ tog();})();
     try{ setLoading(true); }catch(e){}
     fetchClaim360().then(function(rows){
       try{ setLoading(false); }catch(e){}
-      if(!rows.length){ if(typeof toast==='function') toast('360 me audit item nahi bacha'); return; }
+      if(!rows.length){ if(typeof toast==='function') toast('No more 360 items to audit'); return; }
       group.length=0; for(var k=0;k<rows.length;k++) group.push(rows[k]);
       idx=0; showReviewScreen(); showRecord();
     });
@@ -5005,6 +5021,67 @@ tog();})();
 })();
 </script>
 <!-- ===== END 360 SUPABASE ADD-ON ===== -->
+
+<!-- ===== SETUP SCREEN STATS ===== -->
+<script>
+(function(){
+  function card(label, val, sub){
+    return '<div style="background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:14px 16px;">'
+      + '<div style="font-size:12px;color:var(--t3);margin-bottom:6px;">'+label+'</div>'
+      + '<div style="font-size:26px;font-weight:700;color:var(--t1);">'+val+'</div>'
+      + (sub?'<div style="font-size:11px;color:var(--t4);margin-top:4px;">'+sub+'</div>':'')
+      + '</div>';
+  }
+  function box(val, lbl){
+    return '<div style="flex:1;text-align:center;background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:12px 8px;">'
+      + '<div style="font-size:22px;font-weight:700;color:var(--t1);">'+val+'</div>'
+      + '<div style="font-size:12px;color:var(--t3);margin-top:4px;">'+lbl+'</div></div>';
+  }
+  function fmt(n){ return (Number(n)||0).toLocaleString(); }
+
+  window.fetchSetupStats = async function(){
+    var el=document.getElementById('setupStats');
+    if(!el) return;
+    if(typeof mode!=='undefined' && mode==='videoqa'){ el.innerHTML=''; return; }
+    try{
+      var b = getShiftBoundaries();
+      var pc=null;
+      try{ pc = await supaRPC('setup_pool_counts', {}); }catch(e){}
+      var stats=null;
+      if(typeof user!=='undefined' && user){
+        var url = SUPA_URL + '/functions/v1/donecount?full=1'
+          + '&user=' + encodeURIComponent(user)
+          + '&start=' + encodeURIComponent(b.start.toISOString())
+          + '&end='   + encodeURIComponent(b.end.toISOString())
+          + '&cb=' + Date.now();
+        var r = await fetch(url, { headers:{ apikey:SUPA_ANON, Authorization:'Bearer '+SUPA_ANON } });
+        if(r.ok) stats = await r.json();
+      }
+      var youTotal = stats ? ((stats.you&&stats.you.image||0)+(stats.you&&stats.you.threesixty||0)) : 0;
+      var todayImg = stats ? (stats.today&&stats.today.image||0) : 0;
+      var today360 = stats ? (stats.today&&stats.today.threesixty||0) : 0;
+      var todayTotal = todayImg + today360;
+      var av = pc || {qc:0,edited:0,qc_tool:0,threesixty:0};
+
+      el.innerHTML =
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">'
+        + card('Reviewed by you (today)', fmt(youTotal), 'Shift: 6 PM &ndash; 6 PM IST')
+        + card('Total reviewed today', fmt(todayTotal), 'Image '+fmt(todayImg)+' &nbsp;&middot;&nbsp; 360 '+fmt(today360))
+        + '</div>'
+        + '<div style="background:var(--bg1);border:1px solid var(--line);border-radius:12px;padding:14px 16px;">'
+        + '<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:12px;">Available data (mode-wise)</div>'
+        + '<div style="display:flex;gap:10px;">'
+        + box(fmt(av.qc), 'QC Pass') + box(fmt(av.edited), 'Re-Edit') + box(fmt(av.qc_tool), 'QC Tool') + box(fmt(av.threesixty), '360')
+        + '</div></div>';
+    }catch(e){}
+  };
+
+  var _sm = setMode;
+  setMode = function(){ var r=_sm.apply(this,arguments); try{ window.fetchSetupStats(); }catch(e){} return r; };
+  setInterval(function(){ try{ if(document.getElementById('setupPage') && document.getElementById('setupPage').style.display!=='none') window.fetchSetupStats(); }catch(e){} }, 60000);
+})();
+</script>
+<!-- ===== END SETUP SCREEN STATS ===== -->
 
 <!-- ===== IDLE AUTO-LOGOUT (30 min) ===== -->
 <script>
