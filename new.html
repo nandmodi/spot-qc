@@ -4937,6 +4937,64 @@ tog();})();
 </script>
 <!-- ===== END RE-QC AUDIT ADD-ON ===== -->
 
+
+<!-- ===== 360 SUPABASE ADD-ON ===== -->
+<script>
+/* 360: claim from pool_360 / submit to reviews_360 (Supabase) */
+(function(){
+  "use strict";
+  var BATCH=100, REFILL_AT=25;
+  var claimedPending=[], active=false, refilling=false;
+  var rev=function(){try{return (typeof user!=='undefined'&&user)?String(user):'reviewer';}catch(e){return 'reviewer';}};
+  async function fetchClaim360(){
+    var claimed;
+    try{ claimed = await supaRPC('claim_batch_360', { p_reviewer: rev(), p_n: BATCH }); }catch(e){ return []; }
+    if(!Array.isArray(claimed) || !claimed.length) return [];
+    var rows=[];
+    claimed.forEach(function(c){
+      claimedPending.push(c.spin_id);
+      rows.push({ img:c.spin_id, sku:c.sku_id||'', ent:c.enterprise||'', u:c.qc_user||'', spin_url:c.spin_url||'', issue:c.issues||'', date:c.data_date||'' });
+    });
+    return rows;
+  }
+  function showReviewScreen(){var sp=document.getElementById('setupPage'),rp=document.getElementById('reviewPage'); if(sp)sp.style.display='none'; if(rp)rp.style.display='flex';}
+  var _start=startReview;
+  startReview=function(){
+    if(mode!=='360') return _start.apply(this,arguments);
+    active=true; claimedPending=[];
+    try{ setLoading(true); }catch(e){}
+    fetchClaim360().then(function(rows){
+      try{ setLoading(false); }catch(e){}
+      if(!rows.length){ if(typeof toast==='function') toast('360 me audit item nahi bacha'); return; }
+      group.length=0; for(var k=0;k<rows.length;k++) group.push(rows[k]);
+      idx=0; showReviewScreen(); showRecord();
+    });
+  };
+  var _after=afterSubmitActions;
+  afterSubmitActions=function(){
+    if(!(active && mode==='360')) return _after.apply(this,arguments);
+    var cur=group[idx];
+    if(cur){ supaRPC('submit_review_360',{p_spin:cur.img}).catch(function(){}); var i=claimedPending.indexOf(cur.img); if(i>=0) claimedPending.splice(i,1); }
+    toast('Submitted!');
+    currentDoneCount++;
+    var dc=document.getElementById('doneCounter'); if(dc) dc.textContent='Done: '+currentDoneCount;
+    function advance(){ if(idx<group.length-1){ idx++; showRecord(); } else { alert('Review Finished.'); exitToSetup(); } }
+    var remaining=group.length-idx-1;
+    if(remaining>REFILL_AT){ advance(); return; }
+    var needAwait=(remaining<=0);
+    if(refilling){ if(needAwait){ try{setLoading(true);}catch(e){} var _w=setInterval(function(){ if(!refilling){ clearInterval(_w); try{setLoading(false);}catch(e){} advance(); } },300);} else advance(); return; }
+    refilling=true;
+    if(needAwait){ try{setLoading(true);}catch(e){} }
+    fetchClaim360().then(function(rows){ for(var k=0;k<rows.length;k++) group.push(rows[k]); refilling=false; if(needAwait){ try{setLoading(false);}catch(e){} advance(); } });
+    if(!needAwait) advance();
+  };
+  function rebind(){var sb=document.getElementById('startBtn'); if(sb) sb.onclick=startReview;}
+  var _sm=setMode; setMode=function(){var r=_sm.apply(this,arguments); try{rebind();}catch(e){} return r;};
+  rebind();
+})();
+</script>
+<!-- ===== END 360 SUPABASE ADD-ON ===== -->
+
 <!-- ===== IDLE AUTO-LOGOUT (30 min) ===== -->
 <script>
 (function(){
