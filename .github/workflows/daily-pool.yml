@@ -1,0 +1,27 @@
+name: daily-pool
+
+on:
+  schedule:
+    # har 30 min, 1:30 UTC se 12:30 UTC (= 7:00 AM - 6:00 PM IST)
+    - cron: '0,30 1-12 * * *'
+  workflow_dispatch:   # manual run ke liye button
+
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run pool loader
+        env:
+          METABASE_USER: ${{ secrets.METABASE_USER }}
+          METABASE_PASS: ${{ secrets.METABASE_PASS }}
+          SUPABASE_URL:  ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:  ${{ secrets.SUPABASE_KEY }}
+        run: node scripts/load-pool.js
