@@ -2517,7 +2517,7 @@ function afterSubmitActions() {
     currentDoneCount++;
     _id('doneCounter').textContent = `Done: ${currentDoneCount}`;
     if (idx < group.length - 1) { idx++; showRecord(); } 
-    else { alert('Review Finished.'); exitToSetup(); loadData(); }
+    else { alert('Review Finished.'); exitToSetup(); }
 }
 
 function setLoading(s) { _id('loadStrip').style.display = s ? 'flex' : 'none'; }
@@ -4709,6 +4709,17 @@ document.addEventListener('visibilitychange', () => {
 <style>#contStdFilters{display:none !important}</style>
 
 <script>
+/* Supabase config (global) */
+var SUPA_URL="https://zslzmrtbzyhpundxroty.supabase.co";
+var SUPA_ANON="sb_publishable_q61bdPd76CniabVX48HenA_5gOWgvED";
+async function supaRPC(fn,args){
+  var r=await fetch(SUPA_URL+"/rest/v1/rpc/"+fn,{method:"POST",headers:{apikey:SUPA_ANON,Authorization:"Bearer "+SUPA_ANON,"Content-Type":"application/json"},body:JSON.stringify(args)});
+  if(!r.ok) throw new Error("supa "+fn+" "+r.status);
+  return r.json();
+}
+</script>
+
+<script>
 /* Re-QC Audit core */
 (function(){
   "use strict";
@@ -4837,10 +4848,14 @@ tog();})();
   function setQcHidden(h){var b=qcBlock();if(b)b.style.display=h?'none':'';}
   function hideFilters(){var f=document.getElementById('contStdFilters');if(f)f.style.display='none';}
   async function fetchClaim(){
-    var r; try{ r=await fetch(AUDIT_URL+'?action=auditbatch&mode='+encodeURIComponent(mode)+'&reviewer='+encodeURIComponent(rev())+'&n='+BATCH).then(function(x){return x.json();}); }catch(e){ r=null; }
-    if(!r||!r.ok||!r.claimed) return [];
-    var byImg={}; for(var i=0;i<raw.length;i++) byImg[raw[i].img]=raw[i];
-    var rows=[]; r.claimed.forEach(function(c){var row=byImg[c.image_id]; if(row){rows.push(row); claimedPending.push(c.image_id);}});
+    var claimed;
+    try{ claimed = await supaRPC('claim_batch', { p_mode: mode, p_reviewer: rev(), p_n: BATCH }); }catch(e){ return []; }
+    if(!Array.isArray(claimed) || !claimed.length) return [];
+    var rows=[];
+    claimed.forEach(function(c){
+      claimedPending.push(c.image_id);
+      rows.push({ img:c.image_id, sku:c.sku_id||'', ent:c.enterprise||'', u:c.qc_user||'', l:c.input_img||'', m:c.ai_img||'', r:c.final_img||'' });
+    });
     return rows;
   }
   // Self-heal: if a refill returns 0 rows, the local raw CSV snapshot may be
@@ -4848,15 +4863,6 @@ tog();})();
   // client's one-time-per-session raw load). Refresh raw once and retry
   // before giving up — this is what previously caused a false
   // "Review Finished" alert when more images actually existed server-side.
-  var _fetchClaimOrig = fetchClaim;
-  fetchClaim = async function () {
-    var rows = await _fetchClaimOrig();
-    if (rows.length === 0) {
-      try { await loadData(); } catch (e) {}
-      try { rows = await _fetchClaimOrig(); } catch (e) {}
-    }
-    return rows;
-  };
 
   function waitRaw(cb,t){t=t||0; if(typeof raw!=='undefined'&&raw&&raw.length>0){cb();return;} if(t>30){cb();return;} setTimeout(function(){waitRaw(cb,t+1);},300);}
   function showReviewScreen(){var sp=document.getElementById('setupPage'),rp=document.getElementById('reviewPage'); if(sp)sp.style.display='none'; if(rp)rp.style.display='flex';}
@@ -4865,16 +4871,13 @@ tog();})();
     if(!isImg(mode)) return _start.apply(this,arguments);
     auditActive=true; claimedPending=[]; hideFilters(); setQcHidden(true);
     try{ setLoading(true); }catch(e){}
-    try{ if(!raw||raw.length===0) loadData(); }catch(e){}
-    waitRaw(function(){
-      fetchClaim().then(function(rows){
-        try{ setLoading(false); }catch(e){}
-        if(!rows.length){ if(typeof toast==='function') toast('Is tab me audit item nahi bacha'); return; }
-        group.length=0; for(var k=0;k<rows.length;k++) group.push(rows[k]);
-        idx=0; showReviewScreen(); showRecord();
-        startHeartbeat();
-        startIdleCheck();
-      });
+    fetchClaim().then(function(rows){
+      try{ setLoading(false); }catch(e){}
+      if(!rows.length){ if(typeof toast==='function') toast('Is tab me audit item nahi bacha'); return; }
+      group.length=0; for(var k=0;k<rows.length;k++) group.push(rows[k]);
+      idx=0; showReviewScreen(); showRecord();
+      startHeartbeat();
+      startIdleCheck();
     });
   };
   var _after=afterSubmitActions;
@@ -4887,11 +4890,11 @@ tog();})();
     // item before deciding whether to advance or truly finish.
     if(!(auditActive&&isImg(mode))) return _after.apply(this,arguments);
     markActivity();
-    var cur=group[idx]; if(cur){var i=claimedPending.indexOf(cur.img); if(i>=0) claimedPending.splice(i,1);}
+    var cur=group[idx]; if(cur){ supaRPC('submit_review',{p_image:cur.img}).catch(function(){}); var i=claimedPending.indexOf(cur.img); if(i>=0) claimedPending.splice(i,1);}
     toast('Submitted!');
     currentDoneCount++;
     var dc=document.getElementById('doneCounter'); if(dc) dc.textContent='Done: '+currentDoneCount;
-    function advance(){ if(idx<group.length-1){ idx++; showRecord(); } else { alert('Review Finished.'); exitToSetup(); loadData(); } }
+    function advance(){ if(idx<group.length-1){ idx++; showRecord(); } else { alert('Review Finished.'); exitToSetup(); } }
     var remaining=group.length-idx-1;
     if(remaining>REFILL_AT){ advance(); return; }
     var needAwait=(remaining<=0);
