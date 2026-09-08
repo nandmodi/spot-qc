@@ -1870,30 +1870,26 @@ function parseGSheetTimestamp(str) {
 }
 
 async function fetchProductionCount() {
-  console.log('[donecount] start; user=', user, 'mode=', mode, 'AUDIT_URL=', (typeof AUDIT_URL!=='undefined'?AUDIT_URL:'UNDEFINED'));
-  if (!user) { console.log('[donecount] no user -> return'); return; }
+  if (!user) return;
   const is360 = mode === '360';
   try {
     const boundaries = getShiftBoundaries();
-    console.log('[donecount] window', boundaries.start.toISOString(), '->', boundaries.end.toISOString());
     const product = is360 ? '360' : 'image';
-    const url = AUDIT_URL
-      + '?action=donecount'
-      + '&product=' + encodeURIComponent(product)
+    const url = SUPA_URL + '/functions/v1/donecount'
+      + '?product=' + encodeURIComponent(product)
       + '&user=' + encodeURIComponent(user)
       + '&start=' + encodeURIComponent(boundaries.start.toISOString())
       + '&end=' + encodeURIComponent(boundaries.end.toISOString())
       + '&cb=' + Date.now();
-    console.log('[donecount] URL', url);
-    const response = await fetch(url);
-    console.log('[donecount] status', response.status);
-    const text = await response.text();
-    console.log('[donecount] response', text.slice(0,300));
-    let data; try { data = JSON.parse(text); } catch(e){ console.log('[donecount] JSON parse fail'); return; }
-    if (!data || !data.ok) { console.log('[donecount] not ok', data); return; }
-    currentDoneCount = Math.max(currentDoneCount, data.count || 0);
-    _id('doneCounter').textContent = `Done: ${currentDoneCount}`;
-  } catch (err) { console.log('[donecount] ERROR', err && err.message); }
+    const response = await fetch(url, { headers: { apikey: SUPA_ANON, Authorization: 'Bearer ' + SUPA_ANON } });
+    if (!response.ok) return;
+    const data = await response.json();
+    if (!data || !data.ok) return;
+    if (is360 === (mode === '360')) {
+      currentDoneCount = Math.max(currentDoneCount, data.count || 0);
+      _id('doneCounter').textContent = `Done: ${currentDoneCount}`;
+    }
+  } catch (err) {}
 }
 
 // ── QC STATUS MODAL ──
