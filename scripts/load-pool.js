@@ -1,24 +1,24 @@
-// Metabase -> sample -> Supabase pool (daily)
+// Metabase -> sample -> Supabase pool (daily) + BigQuery reviewed-sync
 const MB_URL = "https://metabase.spyne.ai";
 const MB_USER = process.env.METABASE_USER;
 const MB_PASS = process.env.METABASE_PASS;
 const SB_URL  = process.env.SUPABASE_URL;
 const SB_KEY  = process.env.SUPABASE_KEY;
+const GCP_SA  = process.env.GCP_SA_KEY;
 const sbHead  = { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json" };
 
-// QC-Pass = card 8351, Re-Edit = card 8346
 const CARDS = {
   qc:      { card: 8351, userCol: "qc_user_name", actionEq: null,             actionNe: null,             l: "input_image_hres_url", m: "output_image_hres_url", r: "manual_image_hres_url" },
   edited:  { card: 8346, userCol: "last_qc_user", actionEq: null,             actionNe: "qc_editingtool", l: "input_image_hres_url", m: "ai_output",             r: "final_output" },
   qc_tool: { card: 8346, userCol: "last_qc_user", actionEq: "qc_editingtool", actionNe: null,             l: "input_image_hres_url", m: "ai_output",             r: "final_output" },
 };
 const IMG = "ai.image_id", SKU = "sku_id", ENT = "enterprise_name", ACT = "latest_image_action";
-const PCT = 0.25;          // per user×enterprise %
-const MAX_POOL = 35000;    // safety cap
+const SAMPLE_RATE = 0.25;
+const MAX_POOL = 35000;
 
 function yesterdayStr() {
   const d = new Date(); d.setDate(d.getDate() - 1);
-  return d.toISOString().slice(0, 10);   // YYYY-MM-DD
+  return d.toISOString().slice(0, 10);
 }
 function parseCSV(text) {
   const rows = []; let row = [], cur = "", q = false;
@@ -43,16 +43,39 @@ async function sb(method, path, body, extra) {
   return res;
 }
 
+// BigQuery reviewed image_ids -> Supabase reviews (so already-reviewed never re-served)
+async function syncReviewedFromBigQuery() {
+  if (!GCP_SA) { console.log("No GCP_SA_KEY — skipping BQ reviewed sync"); return; }
+  const { BigQuery } = await import("@google-cloud/bigquery");
+  const creds = JSON.parse(GCP_SA);
+  const bq = new BigQuery({ projectId: creds.project_id, credentials: creds });
+  const [rows] = await bq.query({
+    query: `SELECT DISTINCT Image_ID FROM \`spyne-reprocess.spot_qc.image_responses\`
+            WHERE Image_ID IS NOT NULL AND Image_ID != ''
+              AND Timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 10 DAY)`,
+    location: "asia-south1",
+  });
+  const ids = rows.map(r => r.Image_ID).filter(Boolean);
+  console.log("BQ reviewed image_ids:", ids.length);
+  for (let i = 0; i < ids.length; i += 1000) {
+    const batch = ids.slice(i, i+1000).map(id => ({ image_id: id }));
+    await sb("POST", "/rest/v1/reviews?on_conflict=image_id", batch, { Prefer: "resolution=ignore-duplicates,return=minimal" });
+  }
+}
+
 async function main() {
   const dataDate = yesterdayStr();
 
-  // 1. SKIP check: pool already has today-1 data?
+  // SKIP check: pool already has today-1 data?
   const chk = await fetch(`${SB_URL}/rest/v1/rpc/pool_needs_load`, { method: "POST", headers: sbHead, body: "{}" });
   const needsLoad = await chk.json();
   if (needsLoad !== true) { console.log("Pool already fresh (today-1). Skip."); return; }
   console.log("Pool stale/empty -> loading for", dataDate);
 
-  // 2. Metabase login
+  // 1) BigQuery reviewed -> Supabase reviews (BEFORE pool build)
+  try { await syncReviewedFromBigQuery(); } catch (e) { console.log("BQ sync failed (continuing):", e.message); }
+
+  // 2) Metabase login
   const sess = await fetch(`${MB_URL}/api/session`, {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username: MB_USER, password: MB_PASS }),
@@ -60,7 +83,7 @@ async function main() {
   if (!sess.ok) throw new Error("MB login " + sess.status);
   const token = (await sess.json()).id;
 
-  // 3. fetch + sample per card
+  // 3) fetch + sample per card
   const rows = [], seen = {}, csvCache = {};
   for (const mode of Object.keys(CARDS)) {
     const cfg = CARDS[mode];
@@ -99,19 +122,21 @@ async function main() {
     }
     for (const k of Object.keys(groups)) {
       const arr = shuffle(groups[k]);
-      const take = Math.max(1, Math.ceil(arr.length * PCT));
+      const take = Math.max(1, Math.ceil(arr.length * SAMPLE_RATE));
       for (let i = 0; i < Math.min(take, arr.length) && rows.length < MAX_POOL; i++) rows.push(arr[i]);
     }
   }
   console.log("Sampled rows:", rows.length);
   if (!rows.length) throw new Error("No rows sampled — aborting (pool untouched)");
 
-  // 4. REPLACE pool (safe: only after we HAVE rows)
+  // 4) REPLACE pool
   await sb("DELETE", "/rest/v1/pool?image_id=not.is.null", null, { Prefer: "return=minimal" });
   for (let i = 0; i < rows.length; i += 1000) {
     await sb("POST", "/rest/v1/pool?on_conflict=image_id", rows.slice(i, i+1000), { Prefer: "resolution=ignore-duplicates,return=minimal" });
   }
-  // 5. cleanup old reviews
+
+  // 5) exclude reviewed from pool + cleanup
+  await fetch(`${SB_URL}/rest/v1/rpc/exclude_reviewed_from_pool`, { method: "POST", headers: sbHead, body: "{}" });
   await fetch(`${SB_URL}/rest/v1/rpc/cleanup_reviews`, { method: "POST", headers: sbHead, body: "{}" });
 
   console.log("DONE. Loaded", rows.length, "rows for", dataDate);
