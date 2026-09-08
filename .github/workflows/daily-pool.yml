@@ -20,7 +20,7 @@ jobs:
       - name: Install deps
         run: npm install @google-cloud/bigquery
 
-      - name: Run pool loader
+      - name: Run pool loader (image)
         env:
           METABASE_USER: ${{ secrets.METABASE_USER }}
           METABASE_PASS: ${{ secrets.METABASE_PASS }}
@@ -28,3 +28,12 @@ jobs:
           SUPABASE_KEY:  ${{ secrets.SUPABASE_KEY }}
           GCP_SA_KEY:    ${{ secrets.GCP_SA_KEY }}
         run: node scripts/load-pool.js
+
+      - name: Run pool loader (360)
+        env:
+          METABASE_USER: ${{ secrets.METABASE_USER }}
+          METABASE_PASS: ${{ secrets.METABASE_PASS }}
+          SUPABASE_URL:  ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:  ${{ secrets.SUPABASE_KEY }}
+          GCP_SA_KEY:    ${{ secrets.GCP_SA_KEY }}
+        run: node scripts/load-pool-360.js
