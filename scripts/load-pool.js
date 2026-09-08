@@ -12,7 +12,7 @@ const CARDS = {
   edited:  { card: 8346, userCol: "last_qc_user", actionEq: null,             actionNe: "qc_editingtool", l: "input_image_hres_url", m: "ai_output",             r: "final_output" },
   qc_tool: { card: 8346, userCol: "last_qc_user", actionEq: "qc_editingtool", actionNe: null,             l: "input_image_hres_url", m: "ai_output",             r: "final_output" },
 };
-const IMG = "image_id", SKU = "sku_id", ENT = "enterprise_name", ACT = "latest_image_action";
+const IMG = "ai.image_id", SKU = "sku_id", ENT = "enterprise_name", ACT = "latest_image_action";
 const PCT = 0.25;          // per user×enterprise %
 const MAX_POOL = 35000;    // safety cap
 
