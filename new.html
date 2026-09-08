@@ -5073,16 +5073,21 @@ tog();})();
       var todayTotal = todayImg + today360;
       var av = pc || {qc:0,edited:0,qc_tool:0,threesixty:0};
 
+      function mini(val, lbl, accent){
+        return '<div style="flex:1;min-width:0;text-align:center;background:'+(accent?'var(--accentlt)':'var(--bg2)')+';border:1px solid var(--line);border-radius:8px;padding:8px 6px;">'
+          + '<div style="font-size:18px;font-weight:700;color:var(--t1);line-height:1.1;">'+val+'</div>'
+          + '<div style="font-size:10.5px;color:var(--t3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+lbl+'</div></div>';
+      }
       el.innerHTML =
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px;">'
-        + card('Reviewed by you (today)', fmt(youTotal), 'Shift: 6 PM &ndash; 6 PM IST')
-        + card('Total reviewed today', fmt(todayTotal), 'Image '+fmt(todayImg)+' &nbsp;&middot;&nbsp; 360 '+fmt(today360))
-        + '</div>'
-        + '<div style="background:var(--bg1);border:1px solid var(--line);border-radius:12px;padding:14px 16px;">'
-        + '<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:12px;">Available data (mode-wise)</div>'
-        + '<div style="display:flex;gap:10px;">'
-        + box(fmt(av.qc), 'QC Pass') + box(fmt(av.edited), 'Re-Edit') + box(fmt(av.qc_tool), 'QC Tool') + box(fmt(av.threesixty), '360')
-        + '</div></div>';
+        '<div style="display:flex;gap:8px;align-items:stretch;">'
+        + mini(fmt(youTotal), 'Reviewed by you', true)
+        + mini(fmt(todayTotal), 'Total today', true)
+        + '<div style="width:1px;background:var(--line);margin:2px 2px;"></div>'
+        + mini(fmt(av.qc), 'QC Pass')
+        + mini(fmt(av.edited), 'Re-Edit')
+        + mini(fmt(av.qc_tool), 'QC Tool')
+        + mini(fmt(av.threesixty), '360')
+        + '</div>';
     }catch(e){}
   };
 
