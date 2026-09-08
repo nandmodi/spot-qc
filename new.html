@@ -2400,9 +2400,14 @@ function showRecord(){
   _id('progFill').style.width = ((idx+1)/group.length*100) + '%';
 
   if (is360) {
-    _id('spinIframe').src = r.spin_url;
     _id('modalComment360').value = '';
-    checkAllLoaded();
+    var _spin = _id('spinIframe');
+    // Wait for the spin iframe to fully load, THEN start the 5s hold.
+    _spin.onload = function(){ enableSubmit(); };
+    // Safety net: if onload never fires (blocked/slow), enable after 8s.
+    if (safetyTimer) clearTimeout(safetyTimer);
+    safetyTimer = setTimeout(enableSubmit, 8000);
+    _spin.src = r.spin_url;
   } else {
     const required = mode === 'qc' ? 2 : 3;
     const imgs = [
