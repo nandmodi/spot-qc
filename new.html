@@ -1719,14 +1719,17 @@ function saveSpotQueue() { try { localStorage.setItem('spot_submit_queue', JSON.
 // no-cors + text/plain means no CORS preflight, and the row is appended
 // server-side even though the browser can't read the opaque response.
 async function postSpotResponse(url, payload) {
-  if (!url || url.indexOf('PASTE_') === 0) { console.warn('Spot-QC Web App URL not configured'); return false; }
+  // Writes the response into BigQuery via the Supabase submit-response Edge Function.
+  // (url arg kept for signature compatibility with the retry queue; ignored.)
   try {
-    await fetch(url, {
-      method: 'POST', mode: 'no-cors', keepalive: true,
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    const res = await fetch(SUPA_URL + '/functions/v1/submit-response', {
+      method: 'POST', keepalive: true,
+      headers: { apikey: SUPA_ANON, Authorization: 'Bearer ' + SUPA_ANON, 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    return true;
+    if (!res.ok) return false;
+    const data = await res.json().catch(() => null);
+    return !!(data && data.ok);
   } catch (e) { return false; }
 }
 
