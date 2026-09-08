@@ -2,9 +2,8 @@ name: daily-pool
 
 on:
   schedule:
-    # har 30 min, 1:30 UTC se 12:30 UTC (= 7:00 AM - 6:00 PM IST)
     - cron: '0,30 1-12 * * *'
-  workflow_dispatch:   # manual run ke liye button
+  workflow_dispatch:
 
 jobs:
   load:
@@ -18,10 +17,14 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Install deps
+        run: npm install @google-cloud/bigquery
+
       - name: Run pool loader
         env:
           METABASE_USER: ${{ secrets.METABASE_USER }}
           METABASE_PASS: ${{ secrets.METABASE_PASS }}
           SUPABASE_URL:  ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY:  ${{ secrets.SUPABASE_KEY }}
+          GCP_SA_KEY:    ${{ secrets.GCP_SA_KEY }}
         run: node scripts/load-pool.js
