@@ -1165,10 +1165,6 @@ body.vqa-mode .vqa-root{bottom:0;}
     </div>
     <div class="t-space"></div>
     <div class="t-chip done-count" id="doneCounter" style="margin-right:6px">Done: 0</div>
-    <button class="btn-qc-status" onclick="openQcStatus()" style="margin-right:6px">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v18H3z"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
-      QC Status
-    </button>
     <a href="https://nandmodi.github.io/spot-qc/meet-review.html" target="_blank" class="btn-sm btn-top-link" style="margin-right:12px">Review</a>
     
     <div class="t-avatar" id="tAvatar">–</div>
@@ -1209,9 +1205,14 @@ body.vqa-mode .vqa-root{bottom:0;}
     </div>
     
     <div class="load-strip" id="loadStrip"><div class="spin"></div><span id="loadTxt">Fetching data…</span></div>
+
+    <div id="setupStats" style="padding:6px 18px 0;flex-shrink:0;"></div>
     
     <div id="tableContainer" class="table-wrap hidden"></div>
-    <div id="emptySetupMsg" style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--t4)">Select filters and click Start Review.</div>
+    <div id="emptySetupMsg" style="flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--t4);padding:8px 18px 12px;overflow:hidden;">
+      <img src="https://nandmodi.github.io/spot-qc/Quality-control.webp" alt="Quality Control" style="width:100%;max-height:100%;object-fit:contain;display:block;border-radius:12px;box-shadow:var(--shadow-md);"/>
+      <div style="font-size:13px;text-align:center;padding-top:8px;flex-shrink:0;">Select filters and click Start Review.</div>
+    </div>
   </div>
 
   <div id="reviewPage">
@@ -1717,14 +1718,17 @@ function saveSpotQueue() { try { localStorage.setItem('spot_submit_queue', JSON.
 // no-cors + text/plain means no CORS preflight, and the row is appended
 // server-side even though the browser can't read the opaque response.
 async function postSpotResponse(url, payload) {
-  if (!url || url.indexOf('PASTE_') === 0) { console.warn('Spot-QC Web App URL not configured'); return false; }
+  // Writes the response into BigQuery via the Supabase submit-response Edge Function.
+  // (url arg kept for signature compatibility with the retry queue; ignored.)
   try {
-    await fetch(url, {
-      method: 'POST', mode: 'no-cors', keepalive: true,
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    const res = await fetch(SUPA_URL + '/functions/v1/submit-response', {
+      method: 'POST', keepalive: true,
+      headers: { apikey: SUPA_ANON, Authorization: 'Bearer ' + SUPA_ANON, 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    return true;
+    if (!res.ok) return false;
+    const data = await res.json().catch(() => null);
+    return !!(data && data.ok);
   } catch (e) { return false; }
 }
 
@@ -1747,21 +1751,7 @@ async function flushSpotQueue() {
 // fails, the set stays empty and the queue falls back to status filtering — de-dup
 // never blocks the tool.
 let reviewedIds = new Set();
-async function fetchReviewedIds() {
-  reviewedIds = new Set();
-  const url = (mode === '360') ? THREE60_GAS_URL : IMG_GAS_URL;
-  if (!url || url.indexOf('PASTE_') === 0) return;
-  try {
-    const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'action=reviewed&cb=' + Date.now());
-    const j = await r.json();
-    const arr = (j && (j.ids || j.skus)) || [];   // tolerate old/new key names
-    if (Array.isArray(arr)) {
-      arr.forEach(s => { if (s) reviewedIds.add(String(s).trim()); });
-    }
-  } catch (e) {
-    console.warn('reviewed-id fetch failed; de-dup skipped this load', e);
-  }
-}
+async function fetchReviewedIds() { reviewedIds = new Set(); }
 
 const PROXY = "https://media.spyneai.com/unsafe/1200x0/filters:format(webp):quality(80)/";
 
@@ -1834,13 +1824,19 @@ function getRowVal(row, keysArray) {
 }
 
 function getShiftBoundaries() {
-  const now = new Date();
-  const start = new Date(now);
-  start.setHours(7, 0, 0, 0);
-  if (now.getHours() < 7) { start.setDate(start.getDate() - 1); }
+  // Shift = 6 PM IST to next day 6 PM IST, independent of browser timezone.
+  const istNow = new Date(Date.now() + (5.5 * 60 * 60 * 1000));
+  const start = new Date(istNow);
+  start.setUTCHours(18, 0, 0, 0);               // 6 PM (IST clock)
+  if (istNow.getUTCHours() < 18) {              // before 6 PM IST -> shift began yesterday 6 PM
+    start.setUTCDate(start.getUTCDate() - 1);
+  }
   const end = new Date(start);
-  end.setDate(start.getDate() + 1);
-  return { start, end };
+  end.setUTCDate(start.getUTCDate() + 1);        // +24h
+  // Convert IST-clock boundaries back to real UTC for the API call.
+  const startUTC = new Date(start.getTime() - (5.5 * 60 * 60 * 1000));
+  const endUTC   = new Date(end.getTime()   - (5.5 * 60 * 60 * 1000));
+  return { start: startUTC, end: endUTC };
 }
 
 function parseGSheetTimestamp(str) {
@@ -1869,14 +1865,13 @@ async function fetchProductionCount() {
   try {
     const boundaries = getShiftBoundaries();
     const product = is360 ? '360' : 'image';
-    const url = AUDIT_URL
-      + '?action=donecount'
-      + '&product=' + encodeURIComponent(product)
+    const url = SUPA_URL + '/functions/v1/donecount'
+      + '?product=' + encodeURIComponent(product)
       + '&user=' + encodeURIComponent(user)
       + '&start=' + encodeURIComponent(boundaries.start.toISOString())
       + '&end=' + encodeURIComponent(boundaries.end.toISOString())
       + '&cb=' + Date.now();
-    const response = await fetch(url);
+    const response = await fetch(url, { headers: { apikey: SUPA_ANON, Authorization: 'Bearer ' + SUPA_ANON } });
     if (!response.ok) return;
     const data = await response.json();
     if (!data || !data.ok) return;
@@ -2180,65 +2175,14 @@ async function saveCachedRawForMode(modeKey, data) {
   } catch (e) { /* cache write failures should never break the actual data-load flow */ }
 }
 
-async function loadData(silent) {
-  if(!silent) setLoading(true);
-  // Capture which mode THIS call is for. mode is a global that can change
-  // while this async fetch/parse is still in flight (e.g. the user quickly
-  // switches tabs) — without this guard, an older in-flight load for a
-  // different mode can finish LAST and silently overwrite `raw` with the
-  // wrong dataset even though the UI has already moved on to a new mode
-  // (this was causing "360 tab selected but showing image data").
-  const requestMode = mode;
-  const url = requestMode==='qc'?QC_URL:(requestMode==='360'?THREE60_URL:EDIT_URL);
-
-  // Cache-first: if today's data for this mode is already cached, skip the
-  // network fetch + CSV parse entirely and use it directly.
-  const cachedRaw = await getCachedRawForMode(requestMode);
-  if (cachedRaw && cachedRaw.length) {
-    if (mode !== requestMode) { setLoading(false); return; }
-    raw = cachedRaw;
-    await fetchReviewedIds();
-    if (mode !== requestMode) return;
-    fillFilters(); updateCount(); setLoading(false);
-    fetchProductionCount();
-    return;
-  }
-
-  try {
-    const response = await fetch(url + (url.includes('?')?'&':'?') + 'cb=' + Date.now());
-    const csvData = await response.text();
-    Papa.parse(csvData, {
-      header: true, skipEmptyLines: true,
-      complete: async res => {
-        if (mode !== requestMode) return; // stale response for a mode we've since left — discard
-        raw = res.data.map(r => {
-          if (requestMode === '360') {
-            const issueField = getRowVal(r, ['Issues', 'validation_failure_reason', 'vdp_validation_failure_reason']);
-            return { 
-                ...r, ent: getRowVal(r, 'Enterprise'), sku: getRowVal(r, 'SKU_ID'), img: getRowVal(r, 'Spin_ID'), 
-                issue: issueField, u: getRowVal(r, 'User'), spin_url: getRowVal(r, 'spin_url'), 
-                status: getRowVal(r, ['status', 'Status']), date: getRowVal(r, 'Date')
-            };
-          }
-          const isQc = requestMode === 'qc';
-          const map = isQc ? FMAP.qc : FMAP.edited;
-          return {
-            ent: getRowVal(r, map.ent), img: getRowVal(r, map.img), sku: getRowVal(r, map.sku),
-            l: getRowVal(r, map.l), m: getRowVal(r, map.m), r: getRowVal(r, map.r),
-            u: getRowVal(r, map.u) || 'N/A', editor: getRowVal(r, ['last_editor_user', 'editor']) || 'N/A',
-            fqc: getRowVal(r, 'first_qc_user') || 'N/A', lqc: getRowVal(r, 'last_qc_user') || 'N/A',
-            issue: isQc ? '' : getRowVal(r, 'rejected_comments'), 
-            status: getRowVal(r, ['status', 'Status']), action: getRowVal(r, 'latest_image_action')
-          };
-        });
-        saveCachedRawForMode(requestMode, raw); // fire-and-forget; never blocks the UI
-        await fetchReviewedIds();           // hide image/spin IDs already reviewed by anyone
-        if (mode !== requestMode) return;   // mode may have changed again during fetchReviewedIds()
-        fillFilters(); updateCount(); setLoading(false);
-        fetchProductionCount();
-      }
-    });
-  } catch (err) { toast('Error loading data', 'err'); setLoading(false); }
+async function loadData(silent){
+  // Data now comes from Supabase (claim_batch / claim_batch_360). The old
+  // Google-Sheet CSV load + Apps Script reviewed-id fetch are no longer used.
+  raw = [];
+  try { fillFilters(); } catch(e){}
+  try { updateCount(); } catch(e){}
+  setLoading(false);
+  fetchProductionCount();
 }
 
 function fillFilters(){
@@ -2349,15 +2293,13 @@ function enableSubmit() {
     if (imagesLoaded) return;
     if (safetyTimer) clearTimeout(safetyTimer);
     if (submitDelayTimer) clearTimeout(submitDelayTimer);
-    // Require the reviewer to actually look at the image for at least
-    // 2 seconds after it finishes loading before they can submit.
-    // handleFinalSubmit() gates on imagesLoaded directly, so delaying it
-    // here covers both the Submit button click and the Enter-key shortcut.
+    // Hold before submit is enabled: 360 = 5s, images = 1s.
+    var holdMs = (mode === '360') ? 5000 : 1000;
     submitDelayTimer = setTimeout(() => {
       imagesLoaded = true;
       _id('nextBtn').disabled = false;
       _id('nextBtn').textContent = "Submit & Next →";
-    }, 2000);
+    }, holdMs);
 }
 
 function checkAllLoaded() {
@@ -2397,9 +2339,16 @@ function showRecord(){
   _id('progFill').style.width = ((idx+1)/group.length*100) + '%';
 
   if (is360) {
-    _id('spinIframe').src = r.spin_url;
     _id('modalComment360').value = '';
-    checkAllLoaded();
+    _id('spinIframe').src = r.spin_url;
+    // 360: fixed 8s from spin open (≈3s frames load + 5s review) before submit enables.
+    if (safetyTimer) clearTimeout(safetyTimer);
+    if (submitDelayTimer) clearTimeout(submitDelayTimer);
+    submitDelayTimer = setTimeout(function(){
+      imagesLoaded = true;
+      _id('nextBtn').disabled = false;
+      _id('nextBtn').textContent = "Submit & Next →";
+    }, 8000);
   } else {
     const required = mode === 'qc' ? 2 : 3;
     const imgs = [
@@ -2517,7 +2466,7 @@ function afterSubmitActions() {
     currentDoneCount++;
     _id('doneCounter').textContent = `Done: ${currentDoneCount}`;
     if (idx < group.length - 1) { idx++; showRecord(); } 
-    else { alert('Review Finished.'); exitToSetup(); loadData(); }
+    else { alert('Review Finished.'); exitToSetup(); }
 }
 
 function setLoading(s) { _id('loadStrip').style.display = s ? 'flex' : 'none'; }
@@ -2545,9 +2494,13 @@ async function handleGoogleCredential(response) {
     const payload = decodeJwtPayload(response.credential);
     const email = (payload.email || '').toLowerCase();
     try {
-        const r = await fetch('https://script.google.com/macros/s/AKfycbye_GzIkPXMGsVKt9-biOzUkTh-OzAdxgpuevpMRBHsEHeOYsOBMh-Q1q2mSYEmgrBp/exec' + '?z=checklogin11&email=' + encodeURIComponent(email));
+        const r = await fetch(SUPA_URL + '/rest/v1/rpc/check_login', {
+            method: 'POST',
+            headers: { apikey: SUPA_ANON, Authorization: 'Bearer ' + SUPA_ANON, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ p_email: email })
+        });
         const data = await r.json();
-        if (data.allowed) completeLogin(data.name);
+        if (data && data.allowed) completeLogin(data.name);
         else _id('loginErr').style.display = 'block';
     } catch (e) {
         _id('loginErr').style.display = 'block';
@@ -4709,6 +4662,18 @@ document.addEventListener('visibilitychange', () => {
 <style>#contStdFilters{display:none !important}</style>
 
 <script>
+/* Supabase config (global) */
+var AUDIT_URL="https://script.google.com/macros/s/AKfycbye_GzIkPXMGsVKt9-biOzUkTh-OzAdxgpuevpMRBHsEHeOYsOBMh-Q1q2mSYEmgrBp/exec";
+var SUPA_URL="https://zslzmrtbzyhpundxroty.supabase.co";
+var SUPA_ANON="sb_publishable_q61bdPd76CniabVX48HenA_5gOWgvED";
+async function supaRPC(fn,args){
+  var r=await fetch(SUPA_URL+"/rest/v1/rpc/"+fn,{method:"POST",headers:{apikey:SUPA_ANON,Authorization:"Bearer "+SUPA_ANON,"Content-Type":"application/json"},body:JSON.stringify(args)});
+  if(!r.ok) throw new Error("supa "+fn+" "+r.status);
+  return r.json();
+}
+</script>
+
+<script>
 /* Re-QC Audit core */
 (function(){
   "use strict";
@@ -4723,10 +4688,24 @@ document.addEventListener('visibilitychange', () => {
   function setQcHidden(h){var b=qcBlock();if(b)b.style.display=h?'none':'';}
   function hideFilters(){var f=document.getElementById('contStdFilters');if(f)f.style.display='none';}
   async function fetchClaim(){
-    var r; try{ r=await fetch(AUDIT_URL+'?action=auditbatch&mode='+encodeURIComponent(mode)+'&reviewer='+encodeURIComponent(rev())+'&n='+BATCH).then(function(x){return x.json();}); }catch(e){ r=null; }
-    if(!r||!r.ok||!r.claimed) return [];
-    var byImg={}; for(var i=0;i<raw.length;i++) byImg[raw[i].img]=raw[i];
-    var rows=[]; r.claimed.forEach(function(c){var row=byImg[c.image_id]; if(row){rows.push(row); claimedPending.push(c.image_id);}});
+    var claimed;
+    try{
+      claimed = await supaRPC('claim_batch', { p_mode: mode, p_reviewer: rev(), p_n: BATCH });
+    }catch(e){ return []; }
+    if(!Array.isArray(claimed) || !claimed.length) return [];
+    var rows=[];
+    claimed.forEach(function(c){
+      claimedPending.push(c.image_id);
+      rows.push({
+        img: c.image_id,
+        sku: c.sku_id || '',
+        ent: c.enterprise || '',
+        u:   c.qc_user || '',
+        l:   c.input_img || '',
+        m:   c.ai_img || '',
+        r:   c.final_img || ''
+      });
+    });
     return rows;
   }
   function waitRaw(cb,t){t=t||0; if(typeof raw!=='undefined'&&raw&&raw.length>0){cb();return;} if(t>30){cb();return;} setTimeout(function(){waitRaw(cb,t+1);},300);}
@@ -4738,7 +4717,7 @@ document.addEventListener('visibilitychange', () => {
     try{ if(!raw||raw.length===0) loadData(); }catch(e){}
     waitRaw(function(){
       fetchClaim().then(function(rows){
-        if(!rows.length){ if(typeof toast==='function') toast('Is tab me audit item nahi bacha'); return; }
+        if(!rows.length){ if(typeof toast==='function') toast('No more items to audit in this tab'); return; }
         group.length=0; for(var k=0;k<rows.length;k++) group.push(rows[k]);
         idx=0; showReviewScreen(); showRecord();
       });
@@ -4753,7 +4732,7 @@ document.addEventListener('visibilitychange', () => {
     return _after.apply(this,arguments);
   };
   var _show=showRecord; showRecord=function(){var x=_show.apply(this,arguments); if(isImg(mode) || mode==='360') setQcHidden(true); return x;};
-  function releaseAll(){ if(!claimedPending.length) return; try{ navigator.sendBeacon(AUDIT_URL, JSON.stringify({action:'auditrelease',imageIds:claimedPending,reviewer:rev()})); }catch(e){} claimedPending=[]; }
+  function releaseAll(){ if(!claimedPending.length) return; try{ fetch(SUPA_URL+'/rest/v1/rpc/release_claims',{method:'POST',keepalive:true,headers:{apikey:SUPA_ANON,Authorization:'Bearer '+SUPA_ANON,'Content-Type':'application/json'},body:JSON.stringify({p_image_ids:claimedPending})}); }catch(e){} claimedPending=[]; }
   var _exit=exitToSetup; exitToSetup=function(){releaseAll(); return _exit.apply(this,arguments);};
   var _logout=doLogout; doLogout=function(){releaseAll(); return _logout.apply(this,arguments);};
   window.addEventListener('beforeunload', releaseAll);
@@ -4808,12 +4787,12 @@ tog();})();
   var claimedPending=[], auditActive=false;
   var refilling=false;
   var HB_MS=60000, hbTimer=null;
-  function heartbeat(){ if(!claimedPending.length) return; try{ fetch(AUDIT_URL,{method:'POST',mode:'no-cors',keepalive:true,headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'auditheartbeat',imageIds:claimedPending,reviewer:rev()})}); }catch(e){} }
+  function heartbeat(){ /* Apps Script heartbeat removed; Supabase cron + submit-refresh handle stale claims */ }
   function startHeartbeat(){ if(hbTimer) clearInterval(hbTimer); hbTimer=setInterval(heartbeat, HB_MS); }
   function stopHeartbeat(){ if(hbTimer){ clearInterval(hbTimer); hbTimer=null; } }
   var IDLE_MS=15*60*1000, idleTimer=null, lastActivityAt=0;
   function markActivity(){ lastActivityAt=Date.now(); }
-  function idleCheck(){ if(!claimedPending.length) return; if(Date.now()-lastActivityAt>IDLE_MS){ if(typeof toast==='function') toast('15 min se activity nahi, aapka lot release ho gaya'); releaseAll(); } }
+  function idleCheck(){ if(!claimedPending.length) return; if(Date.now()-lastActivityAt>IDLE_MS){ if(typeof toast==='function') toast('No activity for 15 minutes — your batch has been released'); releaseAll(); } }
   function startIdleCheck(){ if(idleTimer) clearInterval(idleTimer); markActivity(); idleTimer=setInterval(idleCheck, 30000); }
   function stopIdleCheck(){ if(idleTimer){ clearInterval(idleTimer); idleTimer=null; } }
   var isImg=function(m){return !!IMAGE_MODES[m];};
@@ -4823,10 +4802,14 @@ tog();})();
   function setQcHidden(h){var b=qcBlock();if(b)b.style.display=h?'none':'';}
   function hideFilters(){var f=document.getElementById('contStdFilters');if(f)f.style.display='none';}
   async function fetchClaim(){
-    var r; try{ r=await fetch(AUDIT_URL+'?action=auditbatch&mode='+encodeURIComponent(mode)+'&reviewer='+encodeURIComponent(rev())+'&n='+BATCH).then(function(x){return x.json();}); }catch(e){ r=null; }
-    if(!r||!r.ok||!r.claimed) return [];
-    var byImg={}; for(var i=0;i<raw.length;i++) byImg[raw[i].img]=raw[i];
-    var rows=[]; r.claimed.forEach(function(c){var row=byImg[c.image_id]; if(row){rows.push(row); claimedPending.push(c.image_id);}});
+    var claimed;
+    try{ claimed = await supaRPC('claim_batch', { p_mode: mode, p_reviewer: rev(), p_n: BATCH }); }catch(e){ return []; }
+    if(!Array.isArray(claimed) || !claimed.length) return [];
+    var rows=[];
+    claimed.forEach(function(c){
+      claimedPending.push(c.image_id);
+      rows.push({ img:c.image_id, sku:c.sku_id||'', ent:c.enterprise||'', u:c.qc_user||'', l:c.input_img||'', m:c.ai_img||'', r:c.final_img||'' });
+    });
     return rows;
   }
   // Self-heal: if a refill returns 0 rows, the local raw CSV snapshot may be
@@ -4834,15 +4817,6 @@ tog();})();
   // client's one-time-per-session raw load). Refresh raw once and retry
   // before giving up — this is what previously caused a false
   // "Review Finished" alert when more images actually existed server-side.
-  var _fetchClaimOrig = fetchClaim;
-  fetchClaim = async function () {
-    var rows = await _fetchClaimOrig();
-    if (rows.length === 0) {
-      try { await loadData(); } catch (e) {}
-      try { rows = await _fetchClaimOrig(); } catch (e) {}
-    }
-    return rows;
-  };
 
   function waitRaw(cb,t){t=t||0; if(typeof raw!=='undefined'&&raw&&raw.length>0){cb();return;} if(t>30){cb();return;} setTimeout(function(){waitRaw(cb,t+1);},300);}
   function showReviewScreen(){var sp=document.getElementById('setupPage'),rp=document.getElementById('reviewPage'); if(sp)sp.style.display='none'; if(rp)rp.style.display='flex';}
@@ -4851,16 +4825,13 @@ tog();})();
     if(!isImg(mode)) return _start.apply(this,arguments);
     auditActive=true; claimedPending=[]; hideFilters(); setQcHidden(true);
     try{ setLoading(true); }catch(e){}
-    try{ if(!raw||raw.length===0) loadData(); }catch(e){}
-    waitRaw(function(){
-      fetchClaim().then(function(rows){
-        try{ setLoading(false); }catch(e){}
-        if(!rows.length){ if(typeof toast==='function') toast('Is tab me audit item nahi bacha'); return; }
-        group.length=0; for(var k=0;k<rows.length;k++) group.push(rows[k]);
-        idx=0; showReviewScreen(); showRecord();
-        startHeartbeat();
-        startIdleCheck();
-      });
+    fetchClaim().then(function(rows){
+      try{ setLoading(false); }catch(e){}
+      if(!rows.length){ if(typeof toast==='function') toast('No more items to audit in this tab'); return; }
+      group.length=0; for(var k=0;k<rows.length;k++) group.push(rows[k]);
+      idx=0; showReviewScreen(); showRecord();
+      startHeartbeat();
+      startIdleCheck();
     });
   };
   var _after=afterSubmitActions;
@@ -4873,11 +4844,11 @@ tog();})();
     // item before deciding whether to advance or truly finish.
     if(!(auditActive&&isImg(mode))) return _after.apply(this,arguments);
     markActivity();
-    var cur=group[idx]; if(cur){var i=claimedPending.indexOf(cur.img); if(i>=0) claimedPending.splice(i,1);}
+    var cur=group[idx]; if(cur){ supaRPC('submit_review',{p_image:cur.img}).catch(function(){}); var i=claimedPending.indexOf(cur.img); if(i>=0) claimedPending.splice(i,1);}
     toast('Submitted!');
     currentDoneCount++;
     var dc=document.getElementById('doneCounter'); if(dc) dc.textContent='Done: '+currentDoneCount;
-    function advance(){ if(idx<group.length-1){ idx++; showRecord(); } else { alert('Review Finished.'); exitToSetup(); loadData(); } }
+    function advance(){ if(idx<group.length-1){ idx++; showRecord(); } else { alert('Review Finished.'); exitToSetup(); } }
     var remaining=group.length-idx-1;
     if(remaining>REFILL_AT){ advance(); return; }
     var needAwait=(remaining<=0);
@@ -4902,7 +4873,7 @@ tog();})();
     if(!needAwait) advance();
   };
   var _show=showRecord; showRecord=function(){var x=_show.apply(this,arguments); if(isImg(mode) || mode==='360'){ setQcHidden(true); markActivity(); } return x;};
-  function releaseAll(){ stopHeartbeat(); stopIdleCheck(); if(!claimedPending.length) return; try{ navigator.sendBeacon(AUDIT_URL, JSON.stringify({action:'auditrelease',imageIds:claimedPending,reviewer:rev()})); }catch(e){} claimedPending=[]; }
+  function releaseAll(){ stopHeartbeat(); stopIdleCheck(); if(!claimedPending.length) return; try{ fetch(SUPA_URL+'/rest/v1/rpc/release_claims',{method:'POST',keepalive:true,headers:{apikey:SUPA_ANON,Authorization:'Bearer '+SUPA_ANON,'Content-Type':'application/json'},body:JSON.stringify({p_image_ids:claimedPending})}); }catch(e){} claimedPending=[]; }
   var _exit=exitToSetup; exitToSetup=function(){releaseAll(); return _exit.apply(this,arguments);};
   var _logout=doLogout; doLogout=function(){releaseAll(); return _logout.apply(this,arguments);};
   window.addEventListener('beforeunload', releaseAll);
@@ -4919,6 +4890,144 @@ try{var _s=setMode; setMode=function(){var r=_s.apply(this,arguments); try{tog()
 tog();})();
 </script>
 <!-- ===== END RE-QC AUDIT ADD-ON ===== -->
+
+
+<!-- ===== 360 SPIN FOCUS (arrow/drag inside, Enter outside) ===== -->
+<script>
+(function(){
+  var f=document.getElementById('spinIframe');
+  if(!f) return;
+  var area=document.getElementById('spinArea');
+  // Mouse over the spin -> focus the iframe so arrow keys + drag rotate the car.
+  f.addEventListener('mouseenter', function(){ try{ f.focus(); }catch(e){} });
+  // Mouse leaves the spin -> return focus to the page so Enter submits.
+  var back=function(){ try{ window.focus(); document.body.focus && document.body.setAttribute('tabindex','-1'); document.body.focus && document.body.focus(); }catch(e){} };
+  f.addEventListener('mouseleave', back);
+  if(area) area.addEventListener('mouseleave', back);
+})();
+</script>
+<!-- ===== 360 SUPABASE ADD-ON ===== -->
+<script>
+/* 360: claim from pool_360 / submit to reviews_360 (Supabase) */
+(function(){
+  "use strict";
+  var BATCH=100, REFILL_AT=25;
+  var claimedPending=[], active=false, refilling=false;
+  var rev=function(){try{return (typeof user!=='undefined'&&user)?String(user):'reviewer';}catch(e){return 'reviewer';}};
+  async function fetchClaim360(){
+    var claimed;
+    try{ claimed = await supaRPC('claim_batch_360', { p_reviewer: rev(), p_n: BATCH }); }catch(e){ return []; }
+    if(!Array.isArray(claimed) || !claimed.length) return [];
+    var rows=[];
+    claimed.forEach(function(c){
+      claimedPending.push(c.spin_id);
+      rows.push({ img:c.spin_id, sku:c.sku_id||'', ent:c.enterprise||'', u:c.qc_user||'', spin_url:c.spin_url||'', issue:c.issues||'', date:c.data_date||'' });
+    });
+    return rows;
+  }
+  function showReviewScreen(){var sp=document.getElementById('setupPage'),rp=document.getElementById('reviewPage'); if(sp)sp.style.display='none'; if(rp)rp.style.display='flex';}
+  var _start=startReview;
+  startReview=function(){
+    if(mode!=='360') return _start.apply(this,arguments);
+    active=true; claimedPending=[];
+    try{ setLoading(true); }catch(e){}
+    fetchClaim360().then(function(rows){
+      try{ setLoading(false); }catch(e){}
+      if(!rows.length){ if(typeof toast==='function') toast('No more 360 items to audit'); return; }
+      group.length=0; for(var k=0;k<rows.length;k++) group.push(rows[k]);
+      idx=0; showReviewScreen(); showRecord();
+    });
+  };
+  var _after=afterSubmitActions;
+  afterSubmitActions=function(){
+    if(!(active && mode==='360')) return _after.apply(this,arguments);
+    var cur=group[idx];
+    if(cur){ supaRPC('submit_review_360',{p_spin:cur.img}).catch(function(){}); var i=claimedPending.indexOf(cur.img); if(i>=0) claimedPending.splice(i,1); }
+    toast('Submitted!');
+    currentDoneCount++;
+    var dc=document.getElementById('doneCounter'); if(dc) dc.textContent='Done: '+currentDoneCount;
+    function advance(){ if(idx<group.length-1){ idx++; showRecord(); } else { alert('Review Finished.'); exitToSetup(); } }
+    var remaining=group.length-idx-1;
+    if(remaining>REFILL_AT){ advance(); return; }
+    var needAwait=(remaining<=0);
+    if(refilling){ if(needAwait){ try{setLoading(true);}catch(e){} var _w=setInterval(function(){ if(!refilling){ clearInterval(_w); try{setLoading(false);}catch(e){} advance(); } },300);} else advance(); return; }
+    refilling=true;
+    if(needAwait){ try{setLoading(true);}catch(e){} }
+    fetchClaim360().then(function(rows){ for(var k=0;k<rows.length;k++) group.push(rows[k]); refilling=false; if(needAwait){ try{setLoading(false);}catch(e){} advance(); } });
+    if(!needAwait) advance();
+  };
+  function rebind(){var sb=document.getElementById('startBtn'); if(sb) sb.onclick=startReview;}
+  var _sm=setMode; setMode=function(){var r=_sm.apply(this,arguments); try{rebind();}catch(e){} return r;};
+  rebind();
+})();
+</script>
+<!-- ===== END 360 SUPABASE ADD-ON ===== -->
+
+<!-- ===== SETUP SCREEN STATS ===== -->
+<script>
+(function(){
+  function card(label, val, sub){
+    return '<div style="background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:6px 12px;">'
+      + '<div style="font-size:10px;color:var(--t3);margin-bottom:1px;">'+label+'</div>'
+      + '<div style="font-size:17px;font-weight:700;color:var(--t1);">'+val+'</div>'
+      + (sub?'<div style="font-size:10px;color:var(--t4);margin-top:2px;">'+sub+'</div>':'')
+      + '</div>';
+  }
+  function box(val, lbl){
+    return '<div style="flex:1;text-align:center;background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:6px 6px;">'
+      + '<div style="font-size:16px;font-weight:700;color:var(--t1);">'+val+'</div>'
+      + '<div style="font-size:11px;color:var(--t3);margin-top:2px;">'+lbl+'</div></div>';
+  }
+  function fmt(n){ return (Number(n)||0).toLocaleString(); }
+
+  window.fetchSetupStats = async function(){
+    var el=document.getElementById('setupStats');
+    if(!el) return;
+    if(typeof mode!=='undefined' && mode==='videoqa'){ el.innerHTML=''; return; }
+    try{
+      var b = getShiftBoundaries();
+      var pc=null;
+      try{ pc = await supaRPC('setup_pool_counts', {}); }catch(e){}
+      var stats=null;
+      if(typeof user!=='undefined' && user){
+        var url = SUPA_URL + '/functions/v1/donecount?full=1'
+          + '&user=' + encodeURIComponent(user)
+          + '&start=' + encodeURIComponent(b.start.toISOString())
+          + '&end='   + encodeURIComponent(b.end.toISOString())
+          + '&cb=' + Date.now();
+        var r = await fetch(url, { headers:{ apikey:SUPA_ANON, Authorization:'Bearer '+SUPA_ANON } });
+        if(r.ok) stats = await r.json();
+      }
+      var youTotal = stats ? ((stats.you&&stats.you.image||0)+(stats.you&&stats.you.threesixty||0)) : 0;
+      var todayImg = stats ? (stats.today&&stats.today.image||0) : 0;
+      var today360 = stats ? (stats.today&&stats.today.threesixty||0) : 0;
+      var todayTotal = todayImg + today360;
+      var av = pc || {qc:0,edited:0,qc_tool:0,threesixty:0};
+
+      function mini(val, lbl, accent){
+        return '<div style="flex:1;min-width:0;text-align:center;background:'+(accent?'var(--accentlt)':'var(--bg2)')+';border:1px solid var(--line);border-radius:8px;padding:8px 6px;">'
+          + '<div style="font-size:18px;font-weight:700;color:var(--t1);line-height:1.1;">'+val+'</div>'
+          + '<div style="font-size:10.5px;color:var(--t3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+lbl+'</div></div>';
+      }
+      el.innerHTML =
+        '<div style="display:flex;gap:8px;align-items:stretch;">'
+        + mini(fmt(youTotal), 'Reviewed by you', true)
+        + mini(fmt(todayTotal), 'Total today', true)
+        + '<div style="width:1px;background:var(--line);margin:2px 2px;"></div>'
+        + mini(fmt(av.qc), 'QC Pass')
+        + mini(fmt(av.edited), 'Re-Edit')
+        + mini(fmt(av.qc_tool), 'QC Tool')
+        + mini(fmt(av.threesixty), '360')
+        + '</div>';
+    }catch(e){}
+  };
+
+  var _sm = setMode;
+  setMode = function(){ var r=_sm.apply(this,arguments); try{ window.fetchSetupStats(); }catch(e){} return r; };
+  setInterval(function(){ try{ if(document.getElementById('setupPage') && document.getElementById('setupPage').style.display!=='none') window.fetchSetupStats(); }catch(e){} }, 60000);
+})();
+</script>
+<!-- ===== END SETUP SCREEN STATS ===== -->
 
 <!-- ===== IDLE AUTO-LOGOUT (30 min) ===== -->
 <script>
