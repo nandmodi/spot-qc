@@ -1180,17 +1180,13 @@ body.vqa-mode .vqa-root{bottom:0;}
         <div class="range-box-container">
           <input type="text" id="dateRange360" placeholder="Select Range">
         </div>
-        <label style="font-weight: 700; font-size: 13px; margin-left: 8px;">User</label>
-        <select id="userFilter360" class="fi-sel"><option value="">All Users</option></select>
-        <label style="font-weight: 700; font-size: 13px; margin-left: 8px;">Enterprise</label>
-        <select id="entFilter360" class="fi-sel"><option value="">All Enterprises</option></select>
+        <select id="userFilter360" class="fi-sel hidden"><option value="">All Users</option></select>
+        <select id="entFilter360" class="fi-sel hidden"><option value="">All Enterprises</option></select>
         <label style="font-weight: 700; font-size: 13px; margin-left: 8px;">Issue Level</label>
         <select id="issueFilter360" class="fi-sel">
-          <option value="">All Issues</option>
-          <option value="nullblank">None / Blank</option>
-          <option value="blocker">Blocker</option>
-          <option value="high">High</option>
-          <option value="low">Low</option>
+          <option value="">All</option>
+          <option value="verified">Verified</option>
+          <option value="rejected">Rejected</option>
         </select>
       </div>
 
@@ -2335,6 +2331,7 @@ function showRecord(){
   _id('mIssueWrap').classList.toggle('hidden', !r.issue);
   const hasBlockerIssue = /blocker/i.test(r.issue || '');
   _id('mIssueWrap').style.backgroundColor = hasBlockerIssue ? '#ffe0e0' : '';
+  if (mode === '360') { _id('mIssue').textContent = (hasBlockerIssue ? 'Rejected' : 'Verified') + (r.issue ? ' — ' + r.issue : ''); _id('mIssueWrap').classList.remove('hidden'); }
   _id('progLbl').textContent = `Record ${idx+1}`;
   _id('progFill').style.width = ((idx+1)/group.length*100) + '%';
 
@@ -4916,7 +4913,7 @@ tog();})();
   var rev=function(){try{return (typeof user!=='undefined'&&user)?String(user):'reviewer';}catch(e){return 'reviewer';}};
   async function fetchClaim360(){
     var claimed;
-    try{ claimed = await supaRPC('claim_batch_360', { p_reviewer: rev(), p_n: BATCH }); }catch(e){ return []; }
+    try{ var _iss=(document.getElementById('issueFilter360')||{}).value||''; claimed = await supaRPC('claim_batch_360', { p_reviewer: rev(), p_n: BATCH, p_issue: _iss||null }); }catch(e){ return []; }
     if(!Array.isArray(claimed) || !claimed.length) return [];
     var rows=[];
     claimed.forEach(function(c){
