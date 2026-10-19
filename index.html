@@ -1728,15 +1728,26 @@ async function postSpotResponse(url, payload) {
   } catch (e) { return false; }
 }
 
+// Only one flush at a time: a long queue takes >30s, and overlapping flushes
+// (setInterval) re-sent the same rows, inflating done counts.
+let flushingQueue = false;
 async function flushSpotQueue() {
-  if (!spotQueue.length) return;
-  const remaining = [];
-  for (const item of spotQueue) {
-    const ok = await postSpotResponse(item.__url, item);
-    if (!ok) remaining.push(item);
+  if (flushingQueue || !spotQueue.length) return;
+  flushingQueue = true;
+  try {
+    const batch = spotQueue.slice();
+    const failed = [];
+    for (const item of batch) {
+      const ok = await postSpotResponse(item.__url, item);
+      if (!ok) failed.push(item);
+    }
+    // Keep failures plus anything queued while this flush was running.
+    const sent = new Set(batch);
+    spotQueue = failed.concat(spotQueue.filter(x => !sent.has(x)));
+    saveSpotQueue();
+  } finally {
+    flushingQueue = false;
   }
-  spotQueue = remaining;
-  saveSpotQueue();
 }
 
 // ── De-dup: image/spin IDs already reviewed by anyone (read live from the response tab) ──
