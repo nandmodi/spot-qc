@@ -55,7 +55,7 @@ async function main() {
   // SKIP check: pool_360 already fresh today?
   const chk = await fetch(`${SB_URL}/rest/v1/rpc/pool360_needs_load`, { method: "POST", headers: sbHead, body: "{}" });
   const needsLoad = await chk.json();
-  if (needsLoad !== true) { console.log("pool_360 already fresh today. Skip."); return; }
+  if (needsLoad !== true && !process.env.FORCE) { console.log("pool_360 already fresh today. Skip."); return; }
   console.log("pool_360 stale/empty -> loading");
 
   // 1) BQ reviewed -> reviews_360

@@ -131,7 +131,7 @@ async function main() {
   // SKIP check: pool already has today-1 data?
   const chk = await fetch(`${SB_URL}/rest/v1/rpc/pool_needs_load`, { method: "POST", headers: sbHead, body: "{}" });
   const needsLoad = await chk.json();
-  if (needsLoad !== true) { console.log("Pool already fresh (today-1). Skip."); return; }
+  if (needsLoad !== true && !process.env.FORCE) { console.log("Pool already fresh (today-1). Skip."); return; }
   console.log("Pool stale/empty -> loading for", dataDate);
 
   // 1) BigQuery reviewed -> Supabase reviews (best-effort)

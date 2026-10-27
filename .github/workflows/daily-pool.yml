@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '0,30 1-12 * * *'
   workflow_dispatch:
+    inputs:
+      force:
+        description: 'Reload pools even if already fresh (e.g. after a Metabase query change)'
+        type: boolean
+        default: false
 
 jobs:
   load:
@@ -27,6 +32,7 @@ jobs:
           SUPABASE_URL:  ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY:  ${{ secrets.SUPABASE_KEY }}
           GCP_SA_KEY:    ${{ secrets.GCP_SA_KEY }}
+          FORCE:         ${{ inputs.force && '1' || '' }}
         run: node scripts/load-pool.js
 
       - name: Run pool loader (360)
@@ -36,4 +42,5 @@ jobs:
           SUPABASE_URL:  ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY:  ${{ secrets.SUPABASE_KEY }}
           GCP_SA_KEY:    ${{ secrets.GCP_SA_KEY }}
+          FORCE:         ${{ inputs.force && '1' || '' }}
         run: node scripts/load-pool-360.js
